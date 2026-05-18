@@ -2,42 +2,37 @@
   "name": "alrajhi-accounting",
   "version": "1.0.0",
   "description": "نظام الراجحي للمحاسبة - إدارة المخزون والفواتير والتقارير المالية",
-  "author": "الراجحي <info@alrajhi.com>",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "set NODE_ENV=development && electron .",
+    "dev": "electron . --enable-logging",
     "build": "electron-builder",
-    "build-win": "electron-builder --win",
-    "check": "node check-install.js",
-    "postinstall": "node scripts/setup-wasm.js"
+    "build-win": "electron-builder --win"
+  },
+  "author": "الراجحي",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "sql.js": "^1.10.3"
   },
   "build": {
     "appId": "com.alrajhi.accounting",
     "productName": "الراجحي للمحاسبة",
-    "copyright": "© 2025 الراجحي",
-    "directories": { "output": "dist", "buildResources": "assets" },
-    "files": [ "**/*", "!node_modules/.cache", "!**/*.map", "!.git", "!.vscode", "!dist", "!scripts" ],
-    "asarUnpack": [ "lib/sql-wasm.wasm", "lib/**/*" ],
-    "extraResources": [ { "from": "node_modules/sql.js/dist/sql-wasm.wasm", "to": "lib/sql-wasm.wasm" } ],
+    "directories": {
+      "output": "dist"
+    },
     "win": {
-      "target": [ { "target": "nsis", "arch": ["x64", "ia32"] }, { "target": "portable", "arch": ["x64"] } ],
-      "icon": "assets/icon.ico",
-      "publisherName": "الراجحي"
+      "target": "nsis",
+      "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "الراجحي للمحاسبة"
+      "createStartMenuShortcut": true
     }
-  },
-  "dependencies": {
-    "sql.js": "^1.8.0"
-  },
-  "devDependencies": {
-    "electron": "^27.0.0",
-    "electron-builder": "^24.6.4"
   }
 }
