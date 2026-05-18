@@ -1,14 +1,32 @@
 name: Build Electron App
-on: [push]
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 18 }
-      - run: npm ci
-      - run: node scripts/download-sql.js
-      - run: npm run build-win
-      - uses: actions/upload-artifact@v4
-        with: { name: alrajhi-accounting, path: dist/ }
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies (without package-lock.json)
+        run: npm install --no-package-lock
+
+      - name: Build Electron app
+        run: npm run build-win
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: alrajhi-setup
+          path: dist/*.exe
