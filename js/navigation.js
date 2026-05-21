@@ -1,3 +1,4 @@
+// js/navigation.js - نظام التنقل (بدون تبويب الوحدات)
 import { ICONS, unlockScroll } from './core.js';
 
 export let currentTab = 'dashboard';
@@ -10,7 +11,6 @@ export const tabsConfig = {
     customers: { title: 'العملاء', subtitle: 'قائمة العملاء', icon: ICONS.users, loader: () => import('./sections.js').then(m => m.loadGenericSection(m.getSectionOptions('/customers'))) },
     suppliers: { title: 'الموردين', subtitle: 'قائمة الموردين', icon: ICONS.factory, loader: () => import('./sections.js').then(m => m.loadGenericSection(m.getSectionOptions('/suppliers'))) },
     categories: { title: 'التصنيفات', subtitle: 'تصنيفات المواد', icon: ICONS.tag, loader: () => import('./sections.js').then(m => m.loadGenericSection(m.getSectionOptions('/definitions?type=category'))) },
-    units: { title: 'الوحدات', subtitle: 'وحدات القياس', icon: ICONS.scale, loader: () => import('./sections.js').then(m => m.loadUnitsSection()) },
     vouchers: { title: 'السندات', subtitle: 'سندات القبض والصرف', icon: ICONS.fileText, loader: () => import('./vouchers.js').then(m => m.loadVouchers()) },
     invoices: { title: 'الفواتير', subtitle: 'سجل الفواتير', icon: ICONS.fileText, loader: () => import('./invoices.js').then(m => m.loadInvoices()) },
     reports: { title: 'التقارير', subtitle: 'التقارير المالية', icon: ICONS.chart, loader: () => import('./reports.js').then(m => m.loadReports()) },
@@ -82,8 +82,8 @@ export function initNavigation() {
     sidebarNav.innerHTML = '';
     if (sheetGrid) sheetGrid.innerHTML = '';
     
-    const mainTabs = ['dashboard','items','sale-invoice','purchase-invoice','customers','suppliers','categories','units','vouchers','invoices','reports','accounts'];
-    const moreTabs = ['purchase-invoice','customers','suppliers','categories','units','vouchers','reports','accounts'];
+    const mainTabs = ['dashboard','items','sale-invoice','purchase-invoice','customers','suppliers','categories','vouchers','invoices','reports','accounts'];
+    const moreTabs = ['purchase-invoice','customers','suppliers','categories','vouchers','reports','accounts'];
     
     mainTabs.forEach(key => {
         const cfg = tabsConfig[key];
