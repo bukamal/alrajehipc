@@ -1,233 +1,309 @@
-// js/reports.js - التقارير المالية (قائمة الدخل، الميزانية، ميزان المراجعة، كشوفات)
-import { refreshCaches, getCache, apiCall } from './db.js';
-import { formatNumber, ICONS, showToast, getCurrencySettings, escapeHtml, openModal, formatDate, confirmDialog, emptyState } from './utils.js';
+// js/reports.js - جميع التقارير المالية مع حقل بحث للعميل/المورد
+import { getAll, getByIndex } from './store.js';
+import { formatNumber, formatDate, ICONS, animateEntry } from './core.js';
+import { showToast } from './modal.js';
 
 export async function loadReports() {
-    const container = document.getElementById('tab-content');
-    container.innerHTML = `
-        <div class="card">
-            <h3 class="card-title">التقارير المالية والإدارية</h3>
-            <p class="card-subtitle">اختر التقرير الذي تريد عرضه</p>
-        </div>
-        <div class="report-card" data-report="income_statement">
-            <div class="report-icon">${ICONS.chart}</div>
-            <div class="report-info"><h4>قائمة الدخل</h4><p>الإيرادات والمصروفات وصافي الربح</p></div>
-        </div>
-        <div class="report-card" data-report="balance_sheet">
-            <div class="report-icon">${ICONS.wallet}</div>
-            <div class="report-info"><h4>الميزانية العمومية</h4><p>الأصول والخصوم وحقوق الملكية</p></div>
-        </div>
-        <div class="report-card" data-report="trial_balance">
-            <div class="report-icon">${ICONS.scale}</div>
-            <div class="report-info"><h4>ميزان المراجعة</h4><p>نظرة شاملة على أرصدة الحسابات</p></div>
-        </div>
-        <div class="report-card" data-report="customer_balances">
-            <div class="report-icon">${ICONS.users}</div>
-            <div class="report-info"><h4>أرصدة العملاء</h4><p>المستحق على العملاء</p></div>
-        </div>
-        <div class="report-card" data-report="supplier_balances">
-            <div class="report-icon">${ICONS.factory}</div>
-            <div class="report-info"><h4>أرصدة الموردين</h4><p>المستحق للموردين</p></div>
-        </div>
-        <div class="report-card" data-report="inventory_summary">
-            <div class="report-icon">${ICONS.box}</div>
-            <div class="report-info"><h4>ملخص المخزون</h4><p>قيمة المواد المتوفرة</p></div>
-        </div>`;
-    
-    document.querySelectorAll('.report-card').forEach(el => {
-        el.addEventListener('click', () => {
-            const r = el.dataset.report;
-            if (r === 'income_statement') loadIncomeStatement();
-            else if (r === 'balance_sheet') loadBalanceSheet();
-            else if (r === 'trial_balance') loadTrialBalance();
-            else if (r === 'customer_balances') loadCustomerBalances();
-            else if (r === 'supplier_balances') loadSupplierBalances();
-            else if (r === 'inventory_summary') loadInventorySummary();
-        });
+  document.getElementById('tab-content').innerHTML = `
+    <div class="card"><h3 class="card-title">التقارير المالية</h3><p class="card-subtitle">اختر التقرير المطلوب</p></div>
+    <div class="report-card" data-report="trial_balance"><div class="report-icon">${ICONS.chart}</div><div><h4>ميزان المراجعة</h4></div></div>
+    <div class="report-card" data-report="income_statement"><div class="report-icon">${ICONS.chart}</div><div><h4>قائمة الدخل</h4></div></div>
+    <div class="report-card" data-report="balance_sheet"><div class="report-icon">${ICONS.chart}</div><div><h4>الميزانية العمومية</h4></div></div>
+    <div class="report-card" data-report="account_ledger"><div class="report-icon">${ICONS.fileText}</div><div><h4>الأستاذ العام (كل الحسابات)</h4></div></div>
+    <div class="report-card" data-report="customer_statement"><div class="report-icon">${ICONS.users}</div><div><h4>كشف حساب عميل</h4></div></div>
+    <div class="report-card" data-report="supplier_statement"><div class="report-icon">${ICONS.factory}</div><div><h4>كشف حساب مورد</h4></div></div>
+    <div class="report-card" data-report="monthly_summary"><div class="report-icon">${ICONS.chart}</div><div><h4>ملخص شهري</h4></div></div>
+    <div class="report-card" data-report="daily_profit"><div class="report-icon">${ICONS.chart}</div><div><h4>الربح اليومي</h4></div></div>`;
+  animateEntry('.report-card', 80);
+  document.querySelectorAll('.report-card').forEach(el => {
+    el.addEventListener('click', () => {
+      const r = el.dataset.report;
+      if (r === 'trial_balance') loadTrialBalance();
+      else if (r === 'income_statement') loadIncomeStatement();
+      else if (r === 'balance_sheet') loadBalanceSheet();
+      else if (r === 'account_ledger') loadAccountLedgerForm();
+      else if (r === 'customer_statement') loadCustomerStatementForm();
+      else if (r === 'supplier_statement') loadSupplierStatementForm();
+      else if (r === 'monthly_summary') loadMonthlySummary();
+      else if (r === 'daily_profit') loadDailyProfitReport();
     });
+  });
 }
 
-// قائمة الدخل
-export async function loadIncomeStatement() {
-    await refreshCaches();
-    const { invoices, paymentVouchers, expenses } = getCache();
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0,10);
-    
-    const salesInvoices = invoices.filter(i => i.type === 'sale' && i.invoice_date >= firstDay && i.invoice_date <= lastDay);
-    const purchaseInvoices = invoices.filter(i => i.type === 'purchase' && i.invoice_date >= firstDay && i.invoice_date <= lastDay);
-    const totalSales = salesInvoices.reduce((s, i) => s + i.total_amount, 0);
-    const totalPurchases = purchaseInvoices.reduce((s, i) => s + i.total_amount, 0);
-    const totalExpenses = expenses.filter(e => e.date >= firstDay && e.date <= lastDay).reduce((s, e) => s + e.amount, 0);
-    const netProfit = totalSales - totalPurchases - totalExpenses;
-    
-    const html = `
-        <div class="card">
-            <button class="btn btn-secondary btn-sm" onclick="window.loadReports()" style="width:auto; margin-bottom:16px;">↩️ العودة إلى التقارير</button>
-            <h3 class="card-title">قائمة الدخل (الشهر الحالي)</h3>
-            <div class="table-wrap">
-                <table class="table">
-                    <thead><tr><th>البيان</th><th>المبلغ</th></tr></thead>
-                    <tbody>
-                        <tr><td>المبيعات</td><td class="positive">${formatNumber(totalSales)}</td></tr>
-                        <tr><td>المشتريات (تكلفة المبيعات)</td><td class="negative">${formatNumber(totalPurchases)}</td></tr>
-                        <tr><td>المصاريف التشغيلية</td><td class="negative">${formatNumber(totalExpenses)}</td></tr>
-                        <tr style="border-top:2px solid var(--border); font-weight:900;"><td>صافي الربح</td><td class="${netProfit >= 0 ? 'positive' : 'negative'}">${formatNumber(netProfit)}</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>`;
-    document.getElementById('tab-content').innerHTML = html;
-    window.loadReports = loadReports;
+async function loadTrialBalance() {
+  const customers = await getAll('customers');
+  const suppliers = await getAll('suppliers');
+  const invoices = await getAll('invoices');
+  const expenses = await getAll('expenses');
+  const vouchers = await getAll('vouchers');
+  const cashBalance = vouchers.reduce((s,v)=> s + (v.type === 'receipt' ? v.amount : -v.amount), 0);
+  const receivables = customers.reduce((s,c)=>s+(c.balance||0),0);
+  const payables = suppliers.reduce((s,supp)=>s+(supp.balance||0),0);
+  const totalSales = invoices.filter(i=>i.type==='sale').reduce((s,i)=>s+(i.total||0),0);
+  const totalPurchases = invoices.filter(i=>i.type==='purchase').reduce((s,i)=>s+(i.total||0),0);
+  const totalExpenses = expenses.reduce((s,e)=>s+(e.amount||0),0);
+  const equity = cashBalance + receivables - payables - totalExpenses;
+  const rows = [
+    { name: 'الصندوق', debit: cashBalance > 0 ? cashBalance : 0, credit: cashBalance < 0 ? -cashBalance : 0, balance: cashBalance },
+    { name: 'ذمم مدينة', debit: receivables, credit: 0, balance: receivables },
+    { name: 'ذمم دائنة', debit: 0, credit: payables, balance: -payables },
+    { name: 'المبيعات', debit: 0, credit: totalSales, balance: totalSales },
+    { name: 'المشتريات', debit: totalPurchases, credit: 0, balance: -totalPurchases },
+    { name: 'مصاريف عامة', debit: totalExpenses, credit: 0, balance: -totalExpenses },
+    { name: 'رأس المال', debit: equity < 0 ? -equity : 0, credit: equity > 0 ? equity : 0, balance: equity }
+  ];
+  let html = `<div class="card"><button class="btn btn-secondary" onclick="loadReports()">🔙 رجوع</button><h3>ميزان المراجعة</h3><div class="table-wrap"><table class="table"><thead><tr><th>الحساب</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead><tbody>`;
+  for (const r of rows) html += `<tr><td style="font-weight:800;">${r.name}</td><td class="text-success">${formatNumber(r.debit)}</td><td class="text-danger">${formatNumber(r.credit)}</td><td class="${r.balance>=0?'text-success':'text-danger'}">${formatNumber(r.balance)}</td></tr>`;
+  html += `</tbody></table></div></div>`;
+  document.getElementById('tab-content').innerHTML = html;
 }
 
-// الميزانية العمومية
-export async function loadBalanceSheet() {
-    await refreshCaches();
-    const { customers, suppliers, invoices, paymentVouchers, items } = getCache();
-    
-    // الأصول: أرصدة العملاء (المدينون) + قيمة المخزون + النقدية (صافي)
-    const receivables = customers.reduce((s, c) => s + (c.balance > 0 ? c.balance : 0), 0);
-    const inventoryValue = items.reduce((s, i) => s + ((i.available || 0) * (i.average_cost || 0)), 0);
-    const totalReceipts = paymentVouchers.filter(v => v.type === 'receipt').reduce((s, v) => s + v.amount, 0);
-    const totalPayments = paymentVouchers.filter(v => v.type === 'payment').reduce((s, v) => s + v.amount, 0);
-    const totalExpenses = paymentVouchers.filter(v => v.type === 'expense').reduce((s, v) => s + v.amount, 0);
-    const cashBalance = totalReceipts - totalPayments - totalExpenses;
-    const totalAssets = receivables + inventoryValue + (cashBalance > 0 ? cashBalance : 0);
-    
-    // الخصوم: أرصدة الموردين (الدائنون)
-    const payables = suppliers.reduce((s, s2) => s + (s2.balance > 0 ? s2.balance : 0), 0);
-    
-    // حقوق الملكية = إجمالي الأصول - إجمالي الخصوم
-    const equity = totalAssets - payables;
-    
-    const html = `
-        <div class="card">
-            <button class="btn btn-secondary btn-sm" onclick="window.loadReports()" style="width:auto; margin-bottom:16px;">↩️ العودة إلى التقارير</button>
-            <h3 class="card-title">الميزانية العمومية</h3>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
-                <div><h4>الأصول</h4><div class="table-wrap"><table class="table"><tr><td>الذمم المدينة (عملاء)</td><td>${formatNumber(receivables)}</td></tr><tr><td>قيمة المخزون</td><td>${formatNumber(inventoryValue)}</td></tr><tr><td>الصندوق (النقدية)</td><td>${formatNumber(cashBalance > 0 ? cashBalance : 0)}</td></tr><tr style="border-top:2px solid var(--border);"><td><strong>إجمالي الأصول</strong></td><td><strong>${formatNumber(totalAssets)}</strong></td></tr></table></div></div>
-                <div><h4>الخصوم وحقوق الملكية</h4><div class="table-wrap"><table class="table"><tr><td>الذمم الدائنة (موردون)</td><td>${formatNumber(payables)}</td></tr><tr><td>حقوق الملكية (الأرباح المحتجزة)</td><td>${formatNumber(equity)}</td></tr><tr style="border-top:2px solid var(--border);"><td><strong>إجمالي الخصوم وحقوق الملكية</strong></td><td><strong>${formatNumber(payables + equity)}</strong></td></tr></table></div></div>
-            </div>
-        </div>`;
-    document.getElementById('tab-content').innerHTML = html;
-    window.loadReports = loadReports;
+async function loadIncomeStatement() {
+  const invoices = await getAll('invoices');
+  const expenses = await getAll('expenses');
+  const totalSales = invoices.filter(i=>i.type==='sale').reduce((s,i)=>s+(i.total||0),0);
+  const totalPurchases = invoices.filter(i=>i.type==='purchase').reduce((s,i)=>s+(i.total||0),0);
+  const totalExpenses = expenses.reduce((s,e)=>s+(e.amount||0),0);
+  const netProfit = totalSales - totalPurchases - totalExpenses;
+  const html = `<div class="card"><button class="btn btn-secondary" onclick="loadReports()">🔙 رجوع</button><h3>قائمة الدخل</h3><div class="table-wrap"><table class="table"><thead><tr><th>البند</th><th>المبلغ</th></tr></thead><tbody>
+    <tr><td style="font-weight:800;">المبيعات</td><td class="text-success">${formatNumber(totalSales)}</td></tr>
+    <tr><td style="font-weight:800;">المشتريات</td><td class="text-danger">${formatNumber(totalPurchases)}</td></tr>
+    <tr><td style="font-weight:800;">المصاريف</td><td class="text-danger">${formatNumber(totalExpenses)}</td></tr>
+    <tr style="border-top:2px solid var(--border);"><td style="font-weight:900;">صافي الربح</td><td class="${netProfit>=0?'text-success':'text-danger'}">${formatNumber(netProfit)}</td></tr>
+  </tbody></table></div></div>`;
+  document.getElementById('tab-content').innerHTML = html;
 }
 
-// ميزان المراجعة
-export async function loadTrialBalance() {
-    await refreshCaches();
-    const { customers, suppliers, invoices, paymentVouchers, expenses } = getCache();
-    
-    const totalSales = invoices.filter(i => i.type === 'sale').reduce((s, i) => s + i.total_amount, 0);
-    const totalPurchases = invoices.filter(i => i.type === 'purchase').reduce((s, i) => s + i.total_amount, 0);
-    const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
-    const totalReceivables = customers.reduce((s, c) => s + (c.balance > 0 ? c.balance : 0), 0);
-    const totalPayables = suppliers.reduce((s, s2) => s + (s2.balance > 0 ? s2.balance : 0), 0);
-    const totalReceipts = paymentVouchers.filter(v => v.type === 'receipt').reduce((s, v) => s + v.amount, 0);
-    const totalPayments = paymentVouchers.filter(v => v.type === 'payment').reduce((s, v) => s + v.amount, 0);
-    const cashBalance = totalReceipts - totalPayments - totalExpenses;
-    
-    const rows = [
-        { account: 'الصندوق', debit: cashBalance > 0 ? cashBalance : 0, credit: cashBalance < 0 ? -cashBalance : 0 },
-        { account: 'الذمم المدينة', debit: totalReceivables, credit: 0 },
-        { account: 'الذمم الدائنة', debit: 0, credit: totalPayables },
-        { account: 'المبيعات', debit: 0, credit: totalSales },
-        { account: 'المشتريات', debit: totalPurchases, credit: 0 },
-        { account: 'المصاريف', debit: totalExpenses, credit: 0 }
-    ];
-    const totalDebit = rows.reduce((s, r) => s + r.debit, 0);
-    const totalCredit = rows.reduce((s, r) => s + r.credit, 0);
-    
-    let rowsHtml = rows.map(r => `<tr><td>${r.account}</td><td>${formatNumber(r.debit)}</td><td>${formatNumber(r.credit)}</td></tr>`).join('');
-    rowsHtml += `<tr style="border-top:2px solid var(--border); font-weight:900;"><td>المجموع</td><td>${formatNumber(totalDebit)}</td><td>${formatNumber(totalCredit)}</td></tr>`;
-    
-    const html = `
-        <div class="card">
-            <button class="btn btn-secondary btn-sm" onclick="window.loadReports()" style="width:auto; margin-bottom:16px;">↩️ العودة إلى التقارير</button>
-            <h3 class="card-title">ميزان المراجعة</h3>
-            <div class="table-wrap"><table class="table"><thead><tr><th>الحساب</th><th>مدين</th><th>دائن</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
-        </div>`;
-    document.getElementById('tab-content').innerHTML = html;
-    window.loadReports = loadReports;
+async function loadBalanceSheet() {
+  const customers = await getAll('customers');
+  const suppliers = await getAll('suppliers');
+  const vouchers = await getAll('vouchers');
+  const expenses = await getAll('expenses');
+  const cash = vouchers.reduce((s,v)=> s + (v.type === 'receipt' ? v.amount : -v.amount), 0);
+  const receivables = customers.reduce((s,c)=>s+(c.balance||0),0);
+  const payables = suppliers.reduce((s,supp)=>s+(supp.balance||0),0);
+  const totalAssets = cash + receivables;
+  const totalLiabilities = payables;
+  const totalExpenses = expenses.reduce((s,e)=>s+(e.amount||0),0);
+  const equity = totalAssets - totalLiabilities - totalExpenses;
+  const html = `<div class="card"><button class="btn btn-secondary" onclick="loadReports()">🔙 رجوع</button><h3>الميزانية العمومية</h3>
+    <h4>الأصول</h4><div class="table-wrap"><table class="table"><thead><tr><th>الحساب</th><th>الرصيد</th></tr></thead><tbody>
+    <tr><td style="font-weight:800;">الصندوق</td><td>${formatNumber(cash)}</td></tr>
+    <tr><td style="font-weight:800;">ذمم مدينة</td><td>${formatNumber(receivables)}</td></tr>
+    <tr style="font-weight:900;"><td>إجمالي الأصول</td><td>${formatNumber(totalAssets)}</td></tr>
+    </tbody></table></div>
+    <h4>الخصوم</h4><div class="table-wrap"><table class="table"><thead><tr><th>الحساب</th><th>الرصيد</th></tr></thead><tbody>
+    <tr><td style="font-weight:800;">ذمم دائنة</td><td>${formatNumber(payables)}</td></tr>
+    <tr style="font-weight:900;"><td>إجمالي الخصوم</td><td>${formatNumber(totalLiabilities)}</td></tr>
+    </tbody></table></div>
+    <h4>حقوق الملكية</h4><div class="table-wrap"><table class="table"><thead><tr><th>الحساب</th><th>الرصيد</th></tr></thead><tbody>
+    <tr><td style="font-weight:800;">رأس المال (الأرباح المرحلة)</td><td>${formatNumber(equity)}</td></tr>
+    </tbody></table></div>
+  </div>`;
+  document.getElementById('tab-content').innerHTML = html;
 }
 
-// أرصدة العملاء
-export async function loadCustomerBalances() {
-    await refreshCaches();
-    const { customers, invoices, paymentVouchers } = getCache();
-    const data = customers.map(c => {
-        const totalInvoices = invoices.filter(i => i.customer_id === c.id).reduce((s, i) => s + i.total_amount, 0);
-        const paid = paymentVouchers.filter(v => v.customer_id === c.id && v.type === 'receipt').reduce((s, v) => s + v.amount, 0);
-        const balance = totalInvoices - paid;
-        return { ...c, balance };
-    }).filter(c => c.balance !== 0).sort((a,b) => b.balance - a.balance);
-    
-    let rowsHtml = '';
-    data.forEach(c => {
-        rowsHtml += `<tr><td>${escapeHtml(c.name)}</td><td>${formatNumber(c.balance)}</td><td>${escapeHtml(c.phone || '-')}</td></tr>`;
+async function loadAccountLedgerForm() {
+  const accounts = await getAll('accounts');
+  const opts = accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  const html = `<div class="card"><button class="btn btn-secondary" onclick="loadReports()">🔙 رجوع</button><h3>الأستاذ العام</h3>
+    <div class="form-group"><label>اختر الحساب</label><select id="ledger-account" class="select">${opts}</select></div>
+    <button class="btn btn-primary" id="btn-ledger">عرض الحركات</button>
+    <div id="ledger-result" style="margin-top:20px;"></div></div>`;
+  document.getElementById('tab-content').innerHTML = html;
+  document.getElementById('btn-ledger').addEventListener('click', async () => {
+    const accId = parseInt(document.getElementById('ledger-account').value);
+    const account = accounts.find(a => a.id === accId);
+    if (!account) return;
+    const invoices = await getAll('invoices');
+    const payments = await getAll('payments');
+    const vouchers = await getAll('vouchers');
+    const expenses = await getAll('expenses');
+    const customers = await getAll('customers');
+    const suppliers = await getAll('suppliers');
+    let lines = [];
+    if (account.name === 'الصندوق') {
+      for (const v of vouchers) lines.push({ date: v.date, description: `${v.type==='receipt'?'قبض':'صرف'} ${v.reference||''}`, debit: v.type==='receipt'?v.amount:0, credit: v.type!=='receipt'?v.amount:0 });
+      for (const p of payments) lines.push({ date: p.payment_date, description: 'دفعة', debit: p.customer_id?p.amount:0, credit: p.supplier_id?p.amount:0 });
+    } else if (account.name === 'المبيعات') {
+      for (const inv of invoices.filter(i=>i.type==='sale')) lines.push({ date: inv.date, description: `فاتورة ${inv.reference||''}`, debit: 0, credit: inv.total });
+    } else if (account.name === 'المشتريات') {
+      for (const inv of invoices.filter(i=>i.type==='purchase')) lines.push({ date: inv.date, description: `فاتورة ${inv.reference||''}`, debit: inv.total, credit: 0 });
+    } else if (account.name === 'مصاريف عامة') {
+      for (const ex of expenses) lines.push({ date: ex.expense_date, description: ex.description||'مصروف', debit: ex.amount, credit: 0 });
+      for (const v of vouchers.filter(v=>v.type==='expense')) lines.push({ date: v.date, description: `سند مصروف ${v.reference||''}`, debit: v.amount, credit: 0 });
+    } else {
+      const cust = customers.find(c => c.name === account.name.replace('عميل ',''));
+      if (cust) {
+        const invs = invoices.filter(i=>i.customer_id===cust.id);
+        const pays = payments.filter(p=>p.customer_id===cust.id);
+        for (const inv of invs) lines.push({ date: inv.date, description: `فاتورة ${inv.reference||''}`, debit: inv.type==='sale'?inv.total:0, credit: inv.type==='purchase'?inv.total:0 });
+        for (const p of pays) lines.push({ date: p.payment_date, description: 'دفعة', debit: 0, credit: p.amount });
+      } else {
+        const supp = suppliers.find(s => s.name === account.name.replace('مورد ',''));
+        if (supp) {
+          const invs = invoices.filter(i=>i.supplier_id===supp.id);
+          const pays = payments.filter(p=>p.supplier_id===supp.id);
+          for (const inv of invs) lines.push({ date: inv.date, description: `فاتورة ${inv.reference||''}`, debit: inv.type==='purchase'?inv.total:0, credit: inv.type==='sale'?inv.total:0 });
+          for (const p of pays) lines.push({ date: p.payment_date, description: 'دفعة', debit: p.amount, credit: 0 });
+        }
+      }
+    }
+    lines.sort((a,b)=>a.date.localeCompare(b.date));
+    let balance = 0;
+    let resultHtml = '<div class="table-wrap"><table class="table"><thead><tr><th>التاريخ</th><th>الوصف</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead><tbody>';
+    for (const l of lines) {
+      balance += (l.debit||0) - (l.credit||0);
+      resultHtml += `<tr><td>${formatDate(l.date)}</td><td>${l.description}</td><td class="text-success">${formatNumber(l.debit)}</td><td class="text-danger">${formatNumber(l.credit)}</td><td class="${balance>=0?'text-success':'text-danger'}">${formatNumber(balance)}</td></tr>`;
+    }
+    resultHtml += '</tbody></table></div>';
+    document.getElementById('ledger-result').innerHTML = resultHtml || '<div class="empty-state">لا توجد حركات لهذا الحساب</div>';
+  });
+}
+
+async function loadCustomerStatementForm() {
+  const customers = await getAll('customers');
+  const customerDatalistId = `cust-datalist-${Date.now()}`;
+  const custOptions = customers.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+  const html = `<div class="card"><button class="btn btn-secondary" onclick="loadReports()">🔙 رجوع</button><h3>كشف حساب عميل</h3>
+    <div class="form-group"><label>اختر العميل</label>
+      <input type="text" class="input" id="stmt-cust-search" list="${customerDatalistId}" placeholder="ابحث عن عميل">
+      <datalist id="${customerDatalistId}">${custOptions}</datalist>
+      <input type="hidden" id="stmt-cust-id">
+    </div>
+    <button class="btn btn-primary" id="btn-stmt">عرض الكشف</button>
+    <div id="stmt-result"></div></div>`;
+  document.getElementById('tab-content').innerHTML = html;
+  const searchInput = document.getElementById('stmt-cust-search');
+  const hiddenId = document.getElementById('stmt-cust-id');
+  searchInput.addEventListener('change', () => {
+    const name = searchInput.value.trim();
+    const cust = customers.find(c => c.name === name);
+    if (cust) hiddenId.value = cust.id;
+    else hiddenId.value = '';
+  });
+  document.getElementById('btn-stmt').addEventListener('click', async () => {
+    const custId = parseInt(hiddenId.value);
+    if (!custId) { showToast('اختر عميلاً صحيحاً', 'error'); return; }
+    const invoices = await getByIndex('invoices', 'customer_id', custId);
+    const payments = await getByIndex('payments', 'customer_id', custId);
+    const vouchers = await getByIndex('vouchers', 'customer_id', custId);
+    let lines = [];
+    for (const inv of invoices) lines.push({ date: inv.date, description: `فاتورة ${inv.type==='sale'?'بيع':'شراء'} ${inv.reference||''}`, debit: inv.type==='sale'?inv.total:0, credit: inv.type==='purchase'?inv.total:0 });
+    for (const p of payments) lines.push({ date: p.payment_date, description: 'دفعة', debit: 0, credit: p.amount });
+    for (const v of vouchers) lines.push({ date: v.date, description: `سند قبض ${v.reference||''}`, debit: 0, credit: v.amount });
+    lines.sort((a,b)=>a.date.localeCompare(b.date));
+    let balance = 0;
+    let resultHtml = '<div class="table-wrap"><table class="table"><thead><tr><th>التاريخ</th><th>الوصف</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead><tbody>';
+    for (const l of lines) {
+      balance += (l.debit||0) - (l.credit||0);
+      resultHtml += `<tr><td>${formatDate(l.date)}</td><td>${l.description}</td><td class="text-success">${formatNumber(l.debit)}</td><td class="text-danger">${formatNumber(l.credit)}</td><td class="${balance>=0?'text-success':'text-danger'}">${formatNumber(balance)}</td></tr>`;
+    }
+    resultHtml += '</tbody></table></div>';
+    document.getElementById('stmt-result').innerHTML = resultHtml || '<div class="empty-state">لا توجد حركات لهذا العميل</div>';
+  });
+}
+
+async function loadSupplierStatementForm() {
+  const suppliers = await getAll('suppliers');
+  const supplierDatalistId = `supp-datalist-${Date.now()}`;
+  const suppOptions = suppliers.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+  const html = `<div class="card"><button class="btn btn-secondary" onclick="loadReports()">🔙 رجوع</button><h3>كشف حساب مورد</h3>
+    <div class="form-group"><label>اختر المورد</label>
+      <input type="text" class="input" id="stmt-supp-search" list="${supplierDatalistId}" placeholder="ابحث عن مورد">
+      <datalist id="${supplierDatalistId}">${suppOptions}</datalist>
+      <input type="hidden" id="stmt-supp-id">
+    </div>
+    <button class="btn btn-primary" id="btn-stmt">عرض الكشف</button>
+    <div id="stmt-result"></div></div>`;
+  document.getElementById('tab-content').innerHTML = html;
+  const searchInput = document.getElementById('stmt-supp-search');
+  const hiddenId = document.getElementById('stmt-supp-id');
+  searchInput.addEventListener('change', () => {
+    const name = searchInput.value.trim();
+    const supp = suppliers.find(s => s.name === name);
+    if (supp) hiddenId.value = supp.id;
+    else hiddenId.value = '';
+  });
+  document.getElementById('btn-stmt').addEventListener('click', async () => {
+    const suppId = parseInt(hiddenId.value);
+    if (!suppId) { showToast('اختر مورداً صحيحاً', 'error'); return; }
+    const invoices = await getByIndex('invoices', 'supplier_id', suppId);
+    const payments = await getByIndex('payments', 'supplier_id', suppId);
+    const vouchers = await getByIndex('vouchers', 'supplier_id', suppId);
+    let lines = [];
+    for (const inv of invoices) lines.push({ date: inv.date, description: `فاتورة ${inv.type==='purchase'?'شراء':'بيع'} ${inv.reference||''}`, debit: inv.type==='purchase'?inv.total:0, credit: inv.type==='sale'?inv.total:0 });
+    for (const p of payments) lines.push({ date: p.payment_date, description: 'دفعة', debit: p.amount, credit: 0 });
+    for (const v of vouchers) lines.push({ date: v.date, description: `سند صرف ${v.reference||''}`, debit: v.amount, credit: 0 });
+    lines.sort((a,b)=>a.date.localeCompare(b.date));
+    let balance = 0;
+    let resultHtml = '<div class="table-wrap"><table class="table"><thead><tr><th>التاريخ</th><th>الوصف</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead><tbody>';
+    for (const l of lines) {
+      balance += (l.credit||0) - (l.debit||0);
+      resultHtml += `<tr><td>${formatDate(l.date)}</td><td>${l.description}</td><td class="text-success">${formatNumber(l.debit)}</td><td class="text-danger">${formatNumber(l.credit)}</td><td class="${balance>=0?'text-success':'text-danger'}">${formatNumber(balance)}</td></tr>`;
+    }
+    resultHtml += '</tbody></table></div>';
+    document.getElementById('stmt-result').innerHTML = resultHtml || '<div class="empty-state">لا توجد حركات لهذا المورد</div>';
+  });
+}
+
+async function loadMonthlySummary() {
+  const invoices = await getAll('invoices');
+  const expenses = await getAll('expenses');
+  const monthly = {};
+  for (const inv of invoices) {
+    if (!inv.date) continue;
+    const key = inv.date.substring(0,7);
+    if (!monthly[key]) monthly[key] = { sales:0, purchases:0, expenses:0 };
+    if (inv.type === 'sale') monthly[key].sales += inv.total;
+    else monthly[key].purchases += inv.total;
+  }
+  for (const ex of expenses) {
+    if (!ex.expense_date) continue;
+    const key = ex.expense_date.substring(0,7);
+    if (!monthly[key]) monthly[key] = { sales:0, purchases:0, expenses:0 };
+    monthly[key].expenses += ex.amount;
+  }
+  const months = Object.keys(monthly).sort();
+  let html = `<div class="card"><button class="btn btn-secondary" onclick="loadReports()">🔙 رجوع</button><h3>الملخص الشهري</h3><div class="table-wrap"><table class="table"><thead><tr><th>الشهر</th><th>المبيعات</th><th>المشتريات</th><th>المصروفات</th><th>صافي الربح</th></tr></thead><tbody>`;
+  for (const m of months) {
+    const d = monthly[m];
+    const profit = d.sales - d.purchases - d.expenses;
+    html += `<tr><td>${m}</td><td>${formatNumber(d.sales)}</td><td>${formatNumber(d.purchases)}</td><td>${formatNumber(d.expenses)}</td><td class="${profit>=0?'text-success':'text-danger'}">${formatNumber(profit)}</td></tr>`;
+  }
+  html += `</tbody></table></div></div>`;
+  document.getElementById('tab-content').innerHTML = html;
+}
+
+async function loadDailyProfitReport() {
+  const invoices = await getAll('invoices');
+  const expenses = await getAll('expenses');
+  const daily = new Map();
+  for (const inv of invoices) {
+    if (!inv.date) continue;
+    if (inv.type === 'sale') daily.set(inv.date, (daily.get(inv.date)||0) + inv.total);
+    else if (inv.type === 'purchase') daily.set(inv.date, (daily.get(inv.date)||0) - inv.total);
+  }
+  for (const ex of expenses) {
+    if (!ex.expense_date) continue;
+    daily.set(ex.expense_date, (daily.get(ex.expense_date)||0) - ex.amount);
+  }
+  const dates = Array.from(daily.keys()).sort();
+  const profits = dates.map(d => daily.get(d));
+  let html = `<div class="card"><button class="btn btn-secondary" onclick="loadReports()">🔙 رجوع</button><h3>الربح اليومي</h3><div class="table-wrap"><table class="table"><thead><tr><th>التاريخ</th><th>صافي الربح</th></tr></thead><tbody>`;
+  for (let i=0; i<dates.length; i++) {
+    html += `<tr><td>${formatDate(dates[i])}</td><td class="${profits[i]>=0?'text-success':'text-danger'}">${formatNumber(profits[i])}</td></tr>`;
+  }
+  html += `</tbody></table></div><canvas id="dailyProfitChart" style="margin-top:20px; max-height:300px;"></canvas></div>`;
+  document.getElementById('tab-content').innerHTML = html;
+  const ctx = document.getElementById('dailyProfitChart')?.getContext('2d');
+  if (ctx) {
+    new Chart(ctx, {
+      type: 'line',
+      data: { labels: dates.map(d=>formatDate(d)), datasets: [{ label: 'صافي الربح اليومي', data: profits, borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)', fill: true, tension: 0.3 }] },
+      options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
-    const html = `
-        <div class="card">
-            <button class="btn btn-secondary btn-sm" onclick="window.loadReports()" style="width:auto; margin-bottom:16px;">↩️ العودة إلى التقارير</button>
-            <h3 class="card-title">أرصدة العملاء (المستحق عليهم)</h3>
-            ${data.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>العميل</th><th>المستحق</th><th>الجوال</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>` : emptyState('لا توجد أرصدة مستحقة على العملاء')}
-        </div>`;
-    document.getElementById('tab-content').innerHTML = html;
-    window.loadReports = loadReports;
+  }
 }
 
-// أرصدة الموردين
-export async function loadSupplierBalances() {
-    await refreshCaches();
-    const { suppliers, invoices, paymentVouchers } = getCache();
-    const data = suppliers.map(s => {
-        const totalInvoices = invoices.filter(i => i.supplier_id === s.id).reduce((s, i) => s + i.total_amount, 0);
-        const paid = paymentVouchers.filter(v => v.supplier_id === s.id && v.type === 'payment').reduce((s, v) => s + v.amount, 0);
-        const balance = totalInvoices - paid;
-        return { ...s, balance };
-    }).filter(s => s.balance !== 0).sort((a,b) => b.balance - a.balance);
-    
-    let rowsHtml = '';
-    data.forEach(s => {
-        rowsHtml += `<tr><td>${escapeHtml(s.name)}</td><td>${formatNumber(s.balance)}</td><td>${escapeHtml(s.phone || '-')}</td></tr>`;
-    });
-    const html = `
-        <div class="card">
-            <button class="btn btn-secondary btn-sm" onclick="window.loadReports()" style="width:auto; margin-bottom:16px;">↩️ العودة إلى التقارير</button>
-            <h3 class="card-title">أرصدة الموردين (المستحق لهم)</h3>
-            ${data.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>المورد</th><th>المستحق</th><th>الجوال</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>` : emptyState('لا توجد أرصدة مستحقة للموردين')}
-        </div>`;
-    document.getElementById('tab-content').innerHTML = html;
-    window.loadReports = loadReports;
-}
-
-// ملخص المخزون
-export async function loadInventorySummary() {
-    await refreshCaches();
-    const { items } = getCache();
-    const data = items.filter(i => i.type === 'product').map(i => ({
-        name: i.name,
-        quantity: i.available || 0,
-        avgCost: i.average_cost || 0,
-        totalValue: (i.available || 0) * (i.average_cost || 0),
-        unit: i.base_unit?.name || 'قطعة'
-    })).sort((a,b) => b.totalValue - a.totalValue);
-    
-    let rowsHtml = '';
-    let totalValue = 0;
-    data.forEach(i => {
-        totalValue += i.totalValue;
-        rowsHtml += `<tr><td>${escapeHtml(i.name)}</td><td>${formatNumber(i.quantity)} ${i.unit}</td><td>${formatNumber(i.avgCost)}</td><td>${formatNumber(i.totalValue)}</td></tr>`;
-    });
-    const html = `
-        <div class="card">
-            <button class="btn btn-secondary btn-sm" onclick="window.loadReports()" style="width:auto; margin-bottom:16px;">↩️ العودة إلى التقارير</button>
-            <h3 class="card-title">ملخص المخزون</h3>
-            <div class="table-wrap"><table class="table"><thead><tr><th>المادة</th><th>الكمية</th><th>متوسط التكلفة</th><th>القيمة الإجمالية</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
-            <div style="margin-top:16px; font-weight:900;">إجمالي قيمة المخزون: ${formatNumber(totalValue)}</div>
-        </div>`;
-    document.getElementById('tab-content').innerHTML = html;
-    window.loadReports = loadReports;
-}
+window.loadReports = loadReports;

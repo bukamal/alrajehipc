@@ -1,100 +1,91 @@
-// js/navigation.js - نظام التنقل (بدون حسابات هوى الشام)
-import { ICONS, unlockScroll, lockScroll } from './utils.js';
+import { ICONS, unlockScroll } from './core.js';
 
 export let currentTab = 'dashboard';
+
 export const tabsConfig = {
-    dashboard: { title: 'لوحة التحكم', subtitle: 'نظرة عامة على أداء العمل', icon: ICONS.home },
-    items: { title: 'المواد', subtitle: 'إدارة المواد والخدمات', icon: ICONS.box },
-    customers: { title: 'العملاء', subtitle: 'إدارة بيانات العملاء', icon: ICONS.users },
-    suppliers: { title: 'الموردون', subtitle: 'إدارة الموردين', icon: ICONS.factory },
-    invoices: { title: 'الفواتير', subtitle: 'سجل الفواتير والحركات', icon: ICONS.fileText },
-    new_invoice: { title: 'فاتورة جديدة', subtitle: 'إنشاء فاتورة بيع أو شراء', icon: ICONS.cart },
-    vouchers: { title: 'السندات', subtitle: 'سندات القبض والدفع والمصاريف', icon: ICONS.fileText },
-    reports: { title: 'التقارير', subtitle: 'تقارير مالية وإدارية', icon: ICONS.chart },
-    settings: { title: 'الإعدادات', subtitle: 'نسخ احتياطي وترخيص', icon: ICONS.settings }
+    dashboard: { title: 'لوحة التحكم', subtitle: 'نظرة عامة', icon: ICONS.home, loader: () => import('./dashboard.js').then(m => m.loadDashboard()) },
+    items: { title: 'المواد', subtitle: 'إدارة المخزون', icon: ICONS.box, loader: () => import('./items.js').then(m => m.loadItems()) },
+    'sale-invoice': { title: 'فاتورة بيع', subtitle: 'إنشاء فاتورة مبيعات', icon: ICONS.cart, loader: () => import('./invoices.js').then(m => m.showInvoiceModal('sale')) },
+    'purchase-invoice': { title: 'فاتورة شراء', subtitle: 'إنشاء فاتورة مشتريات', icon: ICONS.download, loader: () => import('./invoices.js').then(m => m.showInvoiceModal('purchase')) },
+    customers: { title: 'العملاء', subtitle: 'قائمة العملاء', icon: ICONS.users, loader: () => import('./sections.js').then(m => m.loadGenericSection(m.getSectionOptions('/customers'))) },
+    suppliers: { title: 'الموردين', subtitle: 'قائمة الموردين', icon: ICONS.factory, loader: () => import('./sections.js').then(m => m.loadGenericSection(m.getSectionOptions('/suppliers'))) },
+    categories: { title: 'التصنيفات', subtitle: 'تصنيفات المواد', icon: ICONS.tag, loader: () => import('./sections.js').then(m => m.loadGenericSection(m.getSectionOptions('/definitions?type=category'))) },
+    units: { title: 'الوحدات', subtitle: 'وحدات القياس', icon: ICONS.scale, loader: () => import('./sections.js').then(m => m.loadUnitsSection()) },
+    vouchers: { title: 'السندات', subtitle: 'سندات القبض والصرف', icon: ICONS.fileText, loader: () => import('./vouchers.js').then(m => m.loadVouchers()) },
+    invoices: { title: 'الفواتير', subtitle: 'سجل الفواتير', icon: ICONS.fileText, loader: () => import('./invoices.js').then(m => m.loadInvoices()) },
+    reports: { title: 'التقارير', subtitle: 'التقارير المالية', icon: ICONS.chart, loader: () => import('./reports.js').then(m => m.loadReports()) },
+    accounts: { title: 'الحسابات', subtitle: 'إدارة الحسابات', icon: ICONS.wallet, loader: () => import('./accounts.js').then(m => m.loadAccounts()) }
 };
 
-const bottomNavTabs = ['dashboard', 'items', 'new_invoice', 'invoices', 'more'];
-const moreMenuTabs = ['customers', 'suppliers', 'vouchers', 'reports', 'settings'];
-
-function setActiveTab(tabName) {
+export function setActiveTab(tabName) {
     document.querySelectorAll('.nav-item, .bottom-item').forEach(el => {
         el.classList.toggle('active', el.dataset.tab === tabName);
     });
     const cfg = tabsConfig[tabName];
     if (cfg) {
-        document.getElementById('page-title').textContent = cfg.title;
-        document.getElementById('page-subtitle').textContent = cfg.subtitle;
+        const title = document.getElementById('page-title');
+        const subtitle = document.getElementById('page-subtitle');
+        if (title) title.textContent = cfg.title;
+        if (subtitle) subtitle.textContent = cfg.subtitle;
     }
 }
 
-export function navigateTo(tabName) {
-    if (tabName === 'more') {
-        const moreMenu = document.getElementById('more-menu');
-        if (moreMenu) {
-            moreMenu.style.display = 'flex';
-            moreMenu.style.visibility = 'visible';
-            moreMenu.style.opacity = '1';
-            moreMenu.style.setProperty('display', 'flex', 'important');
-            setTimeout(() => { lockScroll(); }, 10);
-        } else {
-            console.error('عنصر more-menu غير موجود في DOM');
-        }
-        return;
-    }
-    
+export async function navigateTo(tabName) {
+    if (currentTab === tabName) return;
     currentTab = tabName;
-    localStorage.setItem('lastActiveTab', tabName);
     setActiveTab(tabName);
     
     const moreMenu = document.getElementById('more-menu');
-    if (moreMenu && moreMenu.style.display === 'flex') {
-        moreMenu.style.display = 'none';
-        unlockScroll();
-    }
-    
-    document.getElementById('sidebar').classList.remove('open');
+    if (moreMenu) moreMenu.style.display = 'none';
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.remove('open');
     unlockScroll();
     
     const content = document.getElementById('tab-content');
+    if (!content) return;
+    
     content.style.opacity = '0';
     content.style.transform = 'translateY(12px)';
     
-    setTimeout(async () => {
-        try {
-            switch (tabName) {
-                case 'dashboard': const db = await import('./dashboard.js'); db.loadDashboard(); break;
-                case 'items': const it = await import('./items.js'); it.loadItems(); break;
-                case 'customers': const cu = await import('./customers.js'); cu.loadCustomers(); break;
-                case 'suppliers': const su = await import('./suppliers.js'); su.loadSuppliers(); break;
-                case 'invoices': const iv = await import('./invoices.js'); iv.loadInvoices(); break;
-                case 'new_invoice': const ni = await import('./invoices.js'); ni.showInvoiceModal(); break;
-                case 'vouchers': const vc = await import('./vouchers.js'); vc.loadVouchers(); break;
-                case 'reports': const rp = await import('./reports.js'); rp.loadReports(); break;
-                case 'settings': const st = await import('./settings.js'); st.loadSettings(); break;
-                default: break;
-            }
-        } catch (e) {
-            console.error(e);
-            const { showToast } = await import('./utils.js');
-            showToast(e.message, 'error');
-        }
-        content.style.transition = 'all 0.4s';
+    const cfg = tabsConfig[tabName];
+    if (!cfg) {
+        content.innerHTML = `<div class="empty-state"><h3>⚠️ غير معروف</h3></div>`;
+        content.style.opacity = '1';
+        return;
+    }
+    
+    try {
+        await cfg.loader();
+    } catch (err) {
+        console.error(err);
+        content.innerHTML = `<div class="empty-state"><h3>⚠️ خطأ</h3><p>${err.message}</p></div>`;
+    }
+    
+    requestAnimationFrame(() => {
+        content.style.transition = 'all 0.4s cubic-bezier(0.16,1,0.3,1)';
         content.style.opacity = '1';
         content.style.transform = 'translateY(0)';
-    }, 60);
+    });
 }
 
-export function getLastTab() {
-    return localStorage.getItem('lastActiveTab');
+function showMoreMenu() {
+    const menu = document.getElementById('more-menu');
+    if (menu) menu.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
 }
 
 export function initNavigation() {
     const sidebarNav = document.getElementById('sidebar-nav');
     const sheetGrid = document.getElementById('sheet-grid');
-    const allTabs = Object.keys(tabsConfig);
+    if (!sidebarNav) return;
     
-    allTabs.forEach(key => {
+    sidebarNav.innerHTML = '';
+    if (sheetGrid) sheetGrid.innerHTML = '';
+    
+    const mainTabs = ['dashboard','items','sale-invoice','purchase-invoice','customers','suppliers','categories','units','vouchers','invoices','reports','accounts'];
+    const moreTabs = ['purchase-invoice','customers','suppliers','categories','units','vouchers','reports','accounts'];
+    
+    mainTabs.forEach(key => {
         const cfg = tabsConfig[key];
         if (!cfg) return;
         const btn = document.createElement('button');
@@ -105,87 +96,35 @@ export function initNavigation() {
         sidebarNav.appendChild(btn);
     });
     
-    moreMenuTabs.forEach(key => {
-        const cfg = tabsConfig[key];
-        if (!cfg) return;
-        const sheetBtn = document.createElement('button');
-        sheetBtn.className = 'sheet-item';
-        sheetBtn.dataset.tab = key;
-        sheetBtn.innerHTML = `${cfg.icon}<span>${cfg.title}</span>`;
-        sheetBtn.onclick = () => navigateTo(key);
-        sheetGrid.appendChild(sheetBtn);
-    });
-    
-    const bottomItems = document.querySelectorAll('.bottom-item');
-    if (bottomItems.length === 0) {
-        console.warn('لم يتم العثور على أزرار التنقل السفلي');
-        return;
+    if (sheetGrid) {
+        moreTabs.forEach(key => {
+            const cfg = tabsConfig[key];
+            if (!cfg) return;
+            const btn = document.createElement('button');
+            btn.className = 'sheet-item';
+            btn.dataset.tab = key;
+            btn.innerHTML = `${cfg.icon}<span>${cfg.title}</span>`;
+            btn.onclick = () => { unlockScroll(); navigateTo(key); };
+            sheetGrid.appendChild(btn);
+        });
     }
     
+    const bottomItems = document.querySelectorAll('.bottom-item');
     bottomItems.forEach(btn => {
-        const tabName = btn.dataset.tab;
-        if (tabName && bottomNavTabs.includes(tabName)) {
-            btn.onclick = (e) => {
-                e.preventDefault();
-                navigateTo(tabName);
-            };
-        } else if (tabName === 'more') {
-            btn.onclick = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                navigateTo('more');
-            };
+        const tab = btn.dataset.tab;
+        if (tab === 'more') {
+            btn.onclick = showMoreMenu;
+        } else if (tab) {
+            btn.onclick = () => navigateTo(tab);
         }
     });
     
-    const menuToggle = document.getElementById('menu-toggle');
-    if (menuToggle) {
-        menuToggle.addEventListener('click', () => {
-            document.getElementById('sidebar').classList.toggle('open');
-        });
-    }
+    const toggle = document.getElementById('menu-toggle');
+    if (toggle) toggle.onclick = () => document.getElementById('sidebar').classList.toggle('open');
     
-    const sheetBackdrop = document.querySelector('.sheet-backdrop');
-    if (sheetBackdrop) {
-        sheetBackdrop.addEventListener('click', () => {
-            const moreMenu = document.getElementById('more-menu');
-            if (moreMenu) {
-                moreMenu.style.display = 'none';
-                unlockScroll();
-            }
-        });
-    }
-    
-    const helpBtn = document.getElementById('btn-help');
-    if (helpBtn) {
-        helpBtn.addEventListener('click', () => {
-            import('./utils.js').then(m => m.openModal({
-                title: 'مركز المساعدة',
-                bodyHTML: '<p>نظام الراجحي للمحاسبة</p><p>للإبلاغ عن مشكلة: support@alrajhi.com</p>'
-            }));
-        });
-    }
-    
-    setTimeout(() => {
-        updateSidebarAvatar();
-        updateBrandIcon();
-    }, 100);
-}
-
-function updateSidebarAvatar() {
-    const avatar = localStorage.getItem('userAvatar');
-    const avatarDiv = document.getElementById('user-avatar');
-    if (avatarDiv) {
-        if (avatar) avatarDiv.innerHTML = `<img src="${avatar}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">`;
-        else avatarDiv.innerHTML = 'م';
-    }
-}
-
-function updateBrandIcon() {
-    const icon = localStorage.getItem('brandIcon');
-    const brandIconDiv = document.getElementById('brand-icon');
-    if (brandIconDiv) {
-        if (icon) brandIconDiv.innerHTML = `<img src="${icon}" style="width:36px;height:36px;border-radius:10px;">`;
-        else brandIconDiv.innerHTML = `<svg viewBox="0 0 200 200" width="36" height="36"><rect width="200" height="200" rx="40" fill="#4f46e5"/><text x="100" y="120" fill="white" font-family="'Segoe UI', 'Tajawal'" font-size="110" font-weight="900" text-anchor="middle" dominant-baseline="middle">ر</text><text x="100" y="165" fill="white" font-family="system-ui" font-size="50" text-anchor="middle" dominant-baseline="middle">💰</text></svg>`;
-    }
+    const backdrop = document.querySelector('.sheet-backdrop');
+    if (backdrop) backdrop.onclick = () => {
+        document.getElementById('more-menu').style.display = 'none';
+        unlockScroll();
+    };
 }

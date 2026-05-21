@@ -1,4 +1,3 @@
-// main.js - إصدار متكامل مع أيقونة شريط المهام، إشعارات، نسخة واحدة
 const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -21,7 +20,7 @@ if (!gotTheLock) {
 }
 
 function createWindow() {
-    const backgroundColor = '#f8fafc';
+    const backgroundColor = '#0f172a';
 
     mainWindow = new BrowserWindow({
         width: 1400,
@@ -69,7 +68,7 @@ function createTray() {
     if (fs.existsSync(iconPath)) {
         trayIcon = nativeImage.createFromPath(iconPath);
     } else {
-        trayIcon = nativeImage.createFromDataURL('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#4f46e5"/><text x="50" y="68" fill="white" font-family="Arial" font-size="55" font-weight="bold" text-anchor="middle">ر</text><text x="50" y="88" fill="white" font-family="Arial" font-size="20" text-anchor="middle">💰</text></svg>');
+        trayIcon = nativeImage.createFromDataURL('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#6366f1"/><text x="50" y="68" fill="white" font-family="Arial" font-size="55" font-weight="bold" text-anchor="middle">ر</text><text x="50" y="88" fill="white" font-family="Arial" font-size="20" text-anchor="middle">💰</text></svg>');
     }
     tray = new Tray(trayIcon.resize({ width: 16, height: 16 }));
     
@@ -118,7 +117,7 @@ function createApplicationMenu() {
         ] },
         { label: 'مساعدة', submenu: [
             { label: 'مركز المساعدة', accelerator: 'F1', click: () => { if (mainWindow) mainWindow.webContents.send('show-help'); } },
-            { label: 'حول البرنامج', click: () => { dialog.showMessageBox(mainWindow, { type: 'info', title: 'عن الراجحي للمحاسبة', message: 'نظام الراجحي للمحاسبة\nالإصدار 1.0.0\n\n© 2025 الراجحي', buttons: ['موافق'] }); } }
+            { label: 'حول البرنامج', click: () => { dialog.showMessageBox(mainWindow, { type: 'info', title: 'عن الراجحي للمحاسبة', message: 'نظام الراجحي للمحاسبة\nالإصدار 2.0.0\n\n© 2025 الراجحي', buttons: ['موافق'] }); } }
         ] }
     ];
     const menu = Menu.buildFromTemplate(template);

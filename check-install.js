@@ -1,4 +1,4 @@
-// check-install.js — التحقق من ملفات التثبيت
+// check-install.js — التحقق من ملفات التثبيت (نسخة SQLite)
 const fs = require('fs');
 const path = require('path');
 
@@ -12,21 +12,28 @@ const requiredFiles = [
     { path: 'main.js', critical: true },
     { path: 'js/db.js', critical: true },
     { path: 'js/init.js', critical: true },
-    { path: 'js/utils.js', critical: true },
-    { path: 'js/sqlite-storage.js', critical: true },
+    { path: 'js/core.js', critical: true },
+    { path: 'js/modal.js', critical: true },
+    { path: 'js/store.js', critical: true },
     { path: 'js/activation.js', critical: true },
     { path: 'js/navigation.js', critical: true },
     { path: 'lib/sql-wasm.wasm', critical: true, help: 'npm run postinstall' },
-    { path: 'lib/chart.umd.min.js', critical: false, help: 'تأكد من وجود الملف' },
+    { path: 'lib/sql-wasm.js', critical: true, help: 'npm run postinstall' },
+    { path: 'lib/chart.umd.min.js', critical: false },
+    { path: 'lib/gridstack-all.js', critical: false },
+    { path: 'lib/winbox.min.js', critical: false },
+    { path: 'lib/Sortable.min.js', critical: false },
+    { path: 'lib/tabler.min.css', critical: false },
+    { path: 'lib/tabler-icons.min.css', critical: false },
+    { path: 'lib/bootstrap-icons.min.css', critical: false },
     { path: 'js/dashboard.js', critical: false },
     { path: 'js/items.js', critical: false },
-    { path: 'js/customers.js', critical: false },
-    { path: 'js/suppliers.js', critical: false },
+    { path: 'js/sections.js', critical: false },
     { path: 'js/invoices.js', critical: false },
     { path: 'js/vouchers.js', critical: false },
     { path: 'js/reports.js', critical: false },
-    { path: 'js/settings.js', critical: false },
-    { path: 'js/notifications.js', critical: false }
+    { path: 'js/accounts.js', critical: false },
+    { path: 'js/crypto-service.js', critical: false }
 ];
 
 let allGood = true;
@@ -54,13 +61,11 @@ if (allGood) {
 } else {
     console.log(`║  ❌ ${criticalMissing} ملف/ملفات إجبارية مفقودة          ║`);
     console.log('║  ❌ لا يمكن تشغيل التطبيق حالياً         ║');
-    if (!fs.existsSync(path.join(__dirname, 'lib', 'sql-wasm.wasm'))) {
-        console.log('╠══════════════════════════════════════════╣');
-        console.log('║  🔧 إصلاح سريع:                         ║');
-        console.log('║     1. npm install                       ║');
-        console.log('║     2. npm run postinstall               ║');
-        console.log('║     3. npm run check                     ║');
-    }
+    console.log('╠══════════════════════════════════════════╣');
+    console.log('║  🔧 إصلاح سريع:                         ║');
+    console.log('║     1. npm install                       ║');
+    console.log('║     2. npm run postinstall               ║');
+    console.log('║     3. npm run check                     ║');
 }
 console.log('╚══════════════════════════════════════════╝\n');
 if (!allGood) process.exit(1);

@@ -2,146 +2,65 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#4f46e5">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="نظام الراجحي للمحاسبة - إدارة المخزون والفواتير والتقارير المالية">
-  <title>الراجحي للمحاسبة</title>
-  
-  <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM0ZjQ2ZTUiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMxMGI5ODEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExMiIgZmlsbD0idXJsKCNnKSIvPjx0ZXh0IHg9IjI1NiIgeT0iMjUwIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IlNlZ29lIFVJLCBUYWphd2FsLCBzeXN0ZW0tdWkiIGZvbnQtc2l6ZT0iMTUwIiBmb250LXdlaWdodD0iOTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5SPC90ZXh0Pjx0ZXh0IHg9IjI1NiIgeT0iMzUwIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9InN5c3RlbS11aSIgZm9udC1zaXplPSI4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+JDwvdGV4dD48L3N2Zz4=">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@200;300;400;500;700;800;900&display=swap" rel="stylesheet">
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>الراجحي للمحاسبة - أوفلاين</title>
+  <link rel="stylesheet" href="lib/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="lib/tabler-icons.min.css">
+  <link rel="stylesheet" href="lib/tabler.min.css">
+  <link rel="stylesheet" href="lib/gridstack.min.css">
+  <link rel="stylesheet" href="lib/winbox.min.css">
   <link rel="stylesheet" href="style.css">
-  <link rel="manifest" href="manifest.json">
-
-  <!-- تحميل SQL.js بنفس طريقة هوى الشام -->
-  <script src="lib/sql-wasm.js"></script>
   <script src="lib/chart.umd.min.js"></script>
-  
-  <script>
-    // تهيئة SQL.js كما في هوى الشام
-    window.__sqlReady = new Promise((resolve, reject) => {
-      console.log('⏳ انتظار تحميل SQL.js...');
-      
-      function checkInit() {
-        if (typeof initSqlJs !== 'undefined') {
-          console.log('✅ تم العثور على initSqlJs، جاري التهيئة...');
-          initSqlJs({ locateFile: file => 'lib/' + file })
-            .then(SQL => {
-              window.SQL = SQL;
-              console.log('✅ SQL.js جاهزة');
-              resolve(SQL);
-            })
-            .catch(err => {
-              console.error('❌ فشل تهيئة SQL.js:', err);
-              reject(err);
-            });
-          return true;
-        }
-        return false;
-      }
-      
-      if (!checkInit()) {
-        let attempts = 0;
-        const interval = setInterval(() => {
-          attempts++;
-          if (checkInit()) {
-            clearInterval(interval);
-          } else if (attempts >= 100) {
-            clearInterval(interval);
-            console.error('❌ انتهى الوقت ولم يتم تحميل initSqlJs');
-            reject(new Error('لم يتم تحميل مكتبة SQL.js بشكل صحيح (timeout)'));
-          }
-        }, 50);
-      }
-    });
-    
-    window.errors = [];
-    window.onerror = function(msg, url, line, col, error) {
-      window.errors.push(msg + ' (سطر ' + line + ')');
-      return false;
-    };
-  </script>
+  <script src="lib/gridstack-all.js"></script>
+  <script src="lib/winbox.min.js"></script>
+  <script src="lib/Sortable.min.js"></script>
+  <script src="lib/sql-wasm.js"></script>
+  <style>
+    #loading-screen { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s; }
+    #loading-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; display: none !important; }
+  </style>
 </head>
 <body>
-  <div id="loading-screen">
-    <div class="loader-container">
-      <div class="loader-logo"><svg viewBox="0 0 200 200" width="100" height="100"><rect width="200" height="200" rx="50" fill="#4f46e5"/><text x="100" y="120" fill="white" font-family="'Segoe UI', 'Tajawal'" font-size="110" font-weight="900" text-anchor="middle">ر</text><text x="100" y="165" fill="white" font-family="system-ui" font-size="50" text-anchor="middle">💰</text></svg></div>
-      <div class="loader-bar"><div class="loader-progress"></div></div>
-      <p class="loader-text">جاري تهيئة نظام الراجحي للمحاسبة...</p>
-    </div>
-  </div>
+<div id="loading-screen"><div class="loader-container"><div class="loader-logo">ر</div><div class="loader-bar"><div class="loader-progress"></div></div><p>جاري تهيئة النظام...</p></div></div>
+<div id="toast-container"></div><div id="modal-portal"></div>
 
-  <div id="activation-screen" style="display:none; position:fixed; inset:0; background:var(--bg-primary); z-index:100000; align-items:center; justify-content:center; flex-direction:column; gap:20px; padding:20px;">
-    <div class="loader-logo" style="width:120px; height:120px;"><svg viewBox="0 0 200 200" width="120" height="120"><rect width="200" height="200" rx="50" fill="#4f46e5"/><text x="100" y="120" fill="white" font-family="'Segoe UI', 'Tajawal'" font-size="110" font-weight="900" text-anchor="middle">ر</text><text x="100" y="165" fill="white" font-family="system-ui" font-size="50" text-anchor="middle">💰</text></svg></div>
-    <h2 style="color:var(--text-primary); font-size:28px; font-weight:900;">تفعيل النظام</h2>
-    <p style="color:var(--text-secondary); font-size:16px;">أدخل مفتاح الترخيص (يتطلب اتصالاً بالإنترنت)</p>
-    <input type="password" id="license-input" style="padding:14px 20px; border-radius:14px; border:2px solid var(--border); width:100%; max-width:420px; text-align:center; direction:ltr; font-size:16px; font-family: monospace;" placeholder="XXXXXXXX-...">
-    <button id="btn-activate" class="btn btn-primary" style="width:100%; max-width:420px; padding:14px;">تفعيل عبر الإنترنت</button>
-    <p id="activation-msg" style="color:var(--danger); font-weight:700; min-height:24px;"></p>
-  </div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand"><div class="brand-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></div><div class="brand-text"><h2>الراجحي</h2><span>نظام المحاسبة الذكي</span></div></div>
+  <nav class="sidebar-nav" id="sidebar-nav"></nav>
+  <div class="sidebar-footer"><div class="user-avatar" id="user-avatar">م</div><span id="user-name-sidebar">المستخدم</span></div>
+</aside>
 
-  <div id="error-screen" style="display:none; position:fixed; inset:0; background:var(--bg-primary); z-index:99999; color:var(--danger); align-items:flex-start; justify-content:center; font-size:16px; padding:2rem; text-align:center; flex-direction:column; overflow-y:auto;">
-    <h2 style="font-size:20px;margin-bottom:16px;">حدث خطأ في تشغيل النظام</h2>
-    <pre id="error-details" style="white-space:pre-wrap; word-wrap:break-word; background:var(--danger-light); padding:16px; border-radius:8px; text-align:left; max-width:100%; overflow-x:auto;"></pre>
-    <div style="margin-top:20px; text-align:center; width:100%;">
-      <button onclick="location.reload()" class="btn btn-primary" style="margin:0 8px;">🔄 إعادة التحميل</button>
-      <button onclick="document.getElementById('error-screen').style.display='none'" class="btn btn-secondary" style="margin:0 8px;">إغلاق</button>
-    </div>
-  </div>
+<div class="layout">
+  <header class="top-bar">
+    <button class="menu-toggle" id="menu-toggle"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+    <div class="page-title-wrapper"><h1 class="page-title" id="page-title">لوحة التحكم</h1><span class="page-subtitle" id="page-subtitle">نظرة عامة</span></div>
+    <div class="top-actions"><button class="icon-btn" id="btn-help"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button></div>
+  </header>
+  <main class="content" id="tab-content"></main>
+</div>
 
-  <div id="toast-container"></div>
-  <div id="modal-portal"></div>
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bottom-item active" data-tab="dashboard"><svg class="bottom-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>الرئيسية</span></button>
+  <button class="bottom-item" data-tab="items"><svg class="bottom-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span>المواد</span></button>
+  <button class="bottom-item" data-tab="sale-invoice"><div class="bottom-fab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div><span>بيع</span></button>
+  <button class="bottom-item" data-tab="invoices"><svg class="bottom-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg><span>الفواتير</span></button>
+  <button class="bottom-item" data-tab="more"><svg class="bottom-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span>المزيد</span></button>
+</nav>
 
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand"><div class="brand-icon" id="brand-icon"><svg viewBox="0 0 200 200" width="36" height="36"><rect width="200" height="200" rx="40" fill="#4f46e5"/><text x="100" y="120" fill="white" font-family="'Segoe UI', 'Tajawal'" font-size="110" font-weight="900" text-anchor="middle">ر</text><text x="100" y="165" fill="white" font-family="system-ui" font-size="50" text-anchor="middle">💰</text></svg></div><div class="brand-text"><h2>الراجحي</h2><span>نظام المحاسبة الذكي</span></div></div>
-    <nav class="sidebar-nav" id="sidebar-nav"></nav>
-    <div class="sidebar-footer"><div class="user-avatar" id="user-avatar">م</div><span id="user-name-sidebar" style="font-weight:700; font-size:14px;">مستخدم</span></div>
-  </aside>
+<div id="more-menu" class="sheet-overlay" style="display:none;">
+  <div class="sheet-backdrop"></div>
+  <div class="sheet-content"><div class="sheet-handle"></div><div class="sheet-header">القائمة</div><div class="sheet-grid" id="sheet-grid"></div></div>
+</div>
 
-  <div class="layout">
-    <header class="top-bar">
-      <button class="menu-toggle" id="menu-toggle" aria-label="القائمة"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
-      <div class="page-title-wrapper"><h1 class="page-title" id="page-title">لوحة التحكم</h1><span class="page-subtitle" id="page-subtitle">نظرة عامة</span></div>
-      <div class="top-actions">
-        <button class="icon-btn" id="btn-theme-toggle" title="الوضع الليلي">🌙</button>
-        <button class="icon-btn" id="btn-help" title="المساعدة"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
-      </div>
-    </header>
-    <main class="content" id="tab-content"></main>
-  </div>
-
-  <nav class="bottom-nav" id="bottom-nav">
-    <button class="bottom-item active" data-tab="dashboard"><svg class="bottom-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span class="bottom-label">الرئيسية</span></button>
-    <button class="bottom-item" data-tab="items"><svg class="bottom-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg><span class="bottom-label">المواد</span></button>
-    <button class="bottom-item" data-tab="new_invoice"><div class="bottom-fab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div><span class="bottom-label">فاتورة جديدة</span></button>
-    <button class="bottom-item" data-tab="invoices"><svg class="bottom-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="bottom-label">الفواتير</span></button>
-    <button class="bottom-item" data-tab="more"><svg class="bottom-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg><span class="bottom-label">المزيد</span></button>
-  </nav>
-
-  <div id="more-menu" class="sheet-overlay" style="display:none;"><div class="sheet-backdrop"></div><div class="sheet-content"><div class="sheet-handle"></div><div class="sheet-header">القائمة</div><div class="sheet-grid" id="sheet-grid"></div></div></div>
-
-  <button class="ai-chatbot-fab" id="ai-chatbot-btn" aria-label="مساعد الذكاء الاصطناعي">🤖</button>
-
-  <script type="module">
-    // انتظار تحميل SQL.js قبل بدء التطبيق
-    try {
-      await window.__sqlReady;
-      console.log('🚀 بدء تشغيل التطبيق...');
-      import('./js/init.js');
-    } catch (err) {
-      console.error('فشل تحميل SQL.js:', err);
-      document.getElementById('loading-screen').style.display = 'none';
-      const errorScreen = document.getElementById('error-screen');
-      const errorDetails = document.getElementById('error-details');
-      if (errorScreen && errorDetails) {
-        errorDetails.textContent = 'فشل تحميل مكتبة قاعدة البيانات: ' + err.message;
-        errorScreen.style.display = 'flex';
-      }
-    }
-  </script>
+<script type="module" src="js/init.js"></script>
+<script>
+  setTimeout(() => {
+    const ls = document.getElementById('loading-screen');
+    if (ls) ls.classList.add('hidden');
+  }, 2000);
+  document.getElementById('btn-help')?.addEventListener('click', () => {
+    import('./js/modal.js').then(m => m.openModal({title:'المساعدة', bodyHTML:'<div>نظام محاسبة أوفلاين متكامل. جميع البيانات محفوظة محلياً باستخدام SQLite + IndexedDB.</div>'}));
+  });
+</script>
 </body>
 </html>
