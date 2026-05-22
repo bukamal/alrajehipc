@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head><title>اختبار API</title></head>
+<body>
+  <h1>اختبار اتصال API</h1>
+  <pre id="result">جاري التحميل...</pre>
+  <script>
+    fetch('/api/summary?initData=local_user')
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('result').innerHTML = JSON.stringify(data, null, 2);
+      })
+      .catch(err => {
+        document.getElementById('result').innerHTML = 'خطأ: ' + err.message;
+      });
+  </script>
+</body>
+</html>

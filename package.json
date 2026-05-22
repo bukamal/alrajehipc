@@ -1,22 +1,23 @@
 {
-  "name": "alrajhi-accounting",
+  "name": "alrajhi-accounting-desktop",
   "version": "2.0.0",
-  "description": "نظام الراجحي للمحاسبة - SQLite + IndexedDB",
+  "description": "نظام الراجحي للمحاسبة - نسخة سطح المكتب دون اتصال مع تفعيل التراخيص",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "postinstall": "node scripts/setup-wasm.js && node scripts/download-libs.js",
-    "build-win": "electron-builder --win",
-    "check": "node check-install.js"
+    "build-win": "electron-builder --win --x64",
+    "build-linux": "electron-builder --linux",
+    "build-mac": "electron-builder --mac"
   },
-  "author": "الراجحي",
+  "author": "Alrajhi",
   "license": "MIT",
   "devDependencies": {
     "electron": "^28.0.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.6.4"
   },
   "dependencies": {
-    "sql.js": "^1.10.3"
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6"
   },
   "build": {
     "appId": "com.alrajhi.accounting",
@@ -24,20 +25,24 @@
     "directories": {
       "output": "dist"
     },
+    "files": [
+      "main.js",
+      "preload.js",
+      "database.js",
+      "public/**/*",
+      "node_modules/**/*"
+    ],
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico"
+      "icon": "public/favicon.ico"
     },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/favicon.ico"
     },
-    "files": [
-      "**/*",
-      "!node_modules/.cache",
-      "!dist"
-    ]
+    "mac": {
+      "target": "dmg",
+      "icon": "public/favicon.ico"
+    }
   }
 }

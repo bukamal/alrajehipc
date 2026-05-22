@@ -124,4 +124,3 @@ export function getRemainingTime() {
         return Math.floor((data.expirationDate - now) / 1000);
     } catch(e) { return null; }
 }
-

@@ -1,4 +1,4 @@
-// js/modal.js - النوافذ المنبثقة والإشعارات
+// public/js/modal.js
 import { ICONS, lockScroll, unlockScroll } from './core.js';
 
 let activeModal = null;
@@ -13,6 +13,8 @@ export function showToast(message, type = 'info') {
   if (type === 'warning') iconSvg = ICONS.alert;
   toast.innerHTML = `<span class="toast-icon">${iconSvg}</span> ${message}`;
   container.appendChild(toast);
+  
+  // إزالة تلقائية بعد 3 ثوانٍ
   setTimeout(() => {
     toast.style.animation = 'toastOut 0.35s ease forwards';
     setTimeout(() => toast.remove(), 350);
@@ -63,7 +65,7 @@ export function openModal({ title, bodyHTML, footerHTML = '', onClose }) {
 
   function close() {
     overlay.style.animation = 'fadeIn 0.2s ease reverse';
-    if (box) box.style.animation = 'slideUp 0.25s ease reverse';
+    box.style.animation = 'slideUp 0.25s ease reverse';
     setTimeout(() => {
       overlay.remove();
       if (activeModal === overlay) activeModal = null;
@@ -137,3 +139,5 @@ export function showFormModal({ title, fields, initialValues = {}, onSave, onSuc
     }
   };
 }
+
+
