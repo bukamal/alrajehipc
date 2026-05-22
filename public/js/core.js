@@ -1,12 +1,10 @@
-// public/js/core.js - نسخة تعمل مع قاعدة بيانات SQLite المحلية (بدون خادم)
-// جميع دوال المساعدة والأيقونات كما هي، فقط تم تغيير apiCall لاستخدام sql-db.js
-
+// public/js/core.js - النواة الأساسية للتطبيق (مع دعم حقول البحث في الفواتير)
 import API from './sql-db.js';
 
 export const initData = 'local_user';
-export const apiBase = ''; // لم يعد مستخدماً
+export const apiBase = '';
 
-// أيقونات SVG (نفس النسخة الأصلية)
+// أيقونات SVG (كاملة)
 export const ICONS = {
   home: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
   box: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
@@ -33,7 +31,7 @@ export const ICONS = {
   send: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
 };
 
-// دوال مساعدة عامة (بدون تغيير)
+// دوال مساعدة عامة
 export function formatNumber(num) {
   if (num === undefined || num === null || isNaN(num)) return '0';
   const n = Number(num);
@@ -72,147 +70,89 @@ export function unlockScroll() {
   window.scrollTo(0, scrollLockPos);
 }
 
-// تخزين مؤقت بسيط
+// التخزين المؤقت
 const cache = {};
+export function invalidateCache(key) { delete cache[key]; }
+export function setCache(key, data) { cache[key] = data; }
+export function getCache(key) { return cache[key]; }
 
-function getStoreKey(endpoint) {
-  const [path, queryString] = endpoint.split('?');
-  const params = new URLSearchParams(queryString || '');
-  params.delete('initData');
-  if (path === '/definitions') {
-    const type = params.get('type');
-    if (type === 'category') return 'categories';
-    if (type === 'unit') return 'units';
-    return 'definitions';
-  }
-  if (path === '/reports') {
-    const type = params.get('type');
-    const extra = [];
-    ['account_id', 'customer_id', 'supplier_id'].forEach(key => {
-      if (params.get(key)) extra.push(`${key}_${params.get(key)}`);
-    });
-    const suffix = extra.length ? `_${extra.join('_')}` : '';
-    return type ? `reports_${type}${suffix}` : 'reports';
-  }
-  if (path === '/payments' && params.get('voucher') === '1') return 'vouchers';
-  return path.replace(/^\//, '') || 'root';
-}
-
-function getEntityFromEndpoint(endpoint) {
-  const path = endpoint.split('?')[0];
-  if (path === '/definitions') {
-    const qs = endpoint.split('?')[1] || '';
-    if (qs.includes('type=unit')) return 'units';
-    if (qs.includes('type=category')) return 'categories';
-    return 'definitions';
-  }
-  if (path === '/reports') return 'reports';
-  if (path === '/payments' && endpoint.includes('voucher=1')) return 'vouchers';
-  return path.replace(/^\//, '') || 'root';
-}
-
-// ========== دوال apiCall الجديدة ==========
+// دالة apiCall الرئيسية (تربط بين الواجهة و sql-db.js)
 export async function apiCall(endpoint, method = 'GET', body = {}, retries = 1) {
-  // تجاهل الـ initData (لا حاجة له)
   try {
-    // تحليل المسار والمعاملات
     const [path, queryString] = endpoint.split('?');
     const params = new URLSearchParams(queryString || '');
 
-    // التعامل مع المسارات المختلفة
     if (method === 'GET') {
-      // العملاء
       if (path === '/customers') return await API.getCustomers();
-      // الموردين
       if (path === '/suppliers') return await API.getSuppliers();
-      // التصنيفات والوحدات
       if (path === '/definitions') {
         const type = params.get('type');
         if (type === 'category') return await API.getCategories();
         if (type === 'unit') return await API.getUnits();
       }
-      // المواد
-      if (path === '/items') return await API.getItems();
-      // الفواتير
+      if (path === '/items') {
+        const items = await API.getItems();
+        cache['items'] = items;
+        return items;
+      }
       if (path === '/invoices') return await API.getInvoices();
-      // المصاريف
       if (path === '/expenses') return await API.getExpenses();
-      // السندات (vouchers)
       if (path === '/payments' && params.get('voucher') === '1') return await API.getVouchers();
-      // الملخص
       if (path === '/summary') return await API.getSummary();
-      // الحسابات
       if (path === '/accounts') return await API.getAccounts();
-      // التقارير (سيتم تنفيذها لاحقاً - نعيد مصفوفة فارغة مؤقتاً)
-      if (path === '/reports') return [];
-      // التحقق
       if (path === '/verify') return await API.verify();
-    }
-
+    } 
     else if (method === 'POST') {
-      // العملاء
       if (path === '/customers') return await API.addCustomer(body);
-      // الموردين
       if (path === '/suppliers') return await API.addSupplier(body);
-      // التصنيفات والوحدات
       if (path === '/definitions') {
         if (body.type === 'category') return await API.addCategory(body.name);
         if (body.type === 'unit') return await API.addUnit(body.name, body.abbreviation);
       }
-      // المواد
-      if (path === '/items') return await API.addItem(body);
-      // الفواتير
+      if (path === '/items') {
+        const result = await API.addItem(body);
+        invalidateCache('items');
+        return result;
+      }
       if (path === '/invoices') return await API.createInvoice(body);
-      // المصاريف
       if (path === '/expenses') return await API.addExpense(body);
-      // السندات (إذا كان voucher: true)
       if (path === '/payments' && body.voucher === true) return await API.addVoucher(body);
-      // التحقق
       if (path === '/verify') return await API.verify();
     }
-
     else if (method === 'PUT') {
       const id = body.id;
       if (!id) throw new Error('معرف مطلوب للتعديل');
-      // العملاء
       if (path === '/customers') return await API.updateCustomer(id, body);
-      // الموردين
       if (path === '/suppliers') return await API.updateSupplier(id, body);
-      // التصنيفات
       if (path === '/definitions') {
         if (body.type === 'category') return await API.updateCategory(id, body.name);
         if (body.type === 'unit') return await API.updateUnit(id, body.name, body.abbreviation);
       }
-      // المواد
-      if (path === '/items') return await API.updateItem(id, body);
-      // الفواتير (تعديل الفاتورة – لم ننفذه بعد في sql-db.js، نرمي خطأ)
-      if (path === '/invoices') throw new Error('تعديل الفاتورة غير متاح بعد');
+      if (path === '/items') {
+        const result = await API.updateItem(id, body);
+        invalidateCache('items');
+        return result;
+      }
     }
-
     else if (method === 'DELETE') {
       const id = params.get('id');
       if (!id) throw new Error('معرف مطلوب للحذف');
-      // العملاء
       if (path === '/customers') return await API.deleteCustomer(parseInt(id));
-      // الموردين
       if (path === '/suppliers') return await API.deleteSupplier(parseInt(id));
-      // التصنيفات والوحدات
       if (path === '/definitions') {
         const type = params.get('type');
         if (type === 'category') return await API.deleteCategory(parseInt(id));
         if (type === 'unit') return await API.deleteUnit(parseInt(id));
       }
-      // المواد
-      if (path === '/items') return await API.deleteItem(parseInt(id));
-      // الفواتير
+      if (path === '/items') {
+        const result = await API.deleteItem(parseInt(id));
+        invalidateCache('items');
+        return result;
+      }
       if (path === '/invoices') return await API.deleteInvoice(parseInt(id));
-      // المصاريف
       if (path === '/expenses') return await API.deleteExpense(parseInt(id));
-      // السندات (vouchers)
       if (path === '/payments' && params.get('voucher') === '1') return await API.deleteVoucher(parseInt(id));
     }
-
-    // إذا لم يطابق أي مسار
     throw new Error(`API endpoint غير معروف: ${method} ${endpoint}`);
   } catch (err) {
     console.error('apiCall error:', err);
@@ -220,14 +160,8 @@ export async function apiCall(endpoint, method = 'GET', body = {}, retries = 1) 
   }
 }
 
-// دوال الواجهة (دون تغيير)
+// دالة للحصول على خيارات الوحدة لمادة معينة (تستخدم في generateLineRowHtml)
 export function getUnitOptionsForItem(itemId, selectedUnitId = null) {
-  // هذه الدالة تعتمد على cache['items'] – سنقوم بتحديث cache عند جلب المواد
-  // ولكن للتبسيط، يمكننا استخدام API.getItems() مباشرة إذا لم يكن في cache
-  if (!cache['items']) {
-    // نعيد تعبئة cache بشكل غير متزامن – هذا قد يسبب مشكلة، لذا نستخدم الـ cache المتاح
-    return '<option value="">اختر مادة</option>';
-  }
   const items = cache['items'] || [];
   const units = cache['units'] || [];
   const item = items.find(i => i.id == itemId);
@@ -243,19 +177,24 @@ export function getUnitOptionsForItem(itemId, selectedUnitId = null) {
   return opts;
 }
 
-export function generateLineRowHtml(lineData = null, isSale) {
-  const items = cache['items'] || [];
+// توليد صف بند في الفاتورة (يدعم البحث عن المواد)
+export function generateLineRowHtml(lineData = null, isSale, itemsArray = null, unitsArray = null) {
+  const items = itemsArray || (cache['items'] || []);
   const selectedItemId = lineData ? lineData.item_id : '';
+  const selectedItemName = selectedItemId ? (items.find(i => i.id == selectedItemId)?.name || '') : '';
   const qty = lineData ? lineData.quantity : '';
   const price = lineData ? lineData.unit_price : '';
   const total = lineData ? lineData.total : '';
   const unitId = lineData ? lineData.unit_id : '';
-  const itemOptions = items.map(i => `<option value="${i.id}" ${i.id == selectedItemId ? 'selected' : ''}>${i.name}</option>`).join('');
+  const itemListId = `item-datalist-${Math.random().toString(36).substring(2, 10)}`;
+  const itemOptions = items.map(i => `<option value="${i.name}" data-id="${i.id}">${i.name}</option>`).join('');
 
   return `
     <div class="line-row">
       <div class="form-group" style="grid-column:1/-1">
-        <select class="select item-select"><option value="">اختر مادة</option>${itemOptions}</select>
+        <input type="text" class="input item-search" placeholder="ابحث عن مادة..." autocomplete="off" list="${itemListId}" value="${selectedItemName.replace(/"/g, '&quot;')}">
+        <datalist id="${itemListId}">${itemOptions}</datalist>
+        <input type="hidden" class="item-id-hidden" value="${selectedItemId}">
       </div>
       <div class="form-group">
         <select class="select unit-select" style="${selectedItemId ? '' : 'display:none;'}">
@@ -273,58 +212,19 @@ export function renderSkeleton(type = 'cards') {
   let html = '';
   switch (type) {
     case 'cards':
-      html = Array(3).fill(`
-        <div class="skeleton-card">
-          <div class="skeleton-line w-60"></div>
-          <div class="skeleton-line w-80"></div>
-          <div class="skeleton-line w-40"></div>
-        </div>
-      `).join('');
+      html = Array(3).fill(`<div class="skeleton-card"><div class="skeleton-line w-60"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-40"></div></div>`).join('');
       break;
     case 'table':
-      html = `
-        <div class="skeleton-table">
-          <div class="skeleton-header">
-            <div class="skeleton-line w-25"></div>
-            <div class="skeleton-line w-25"></div>
-            <div class="skeleton-line w-25"></div>
-            <div class="skeleton-line w-25"></div>
-          </div>
-          ${Array(5).fill(`
-            <div class="skeleton-row">
-              <div class="skeleton-line w-30"></div>
-              <div class="skeleton-line w-20"></div>
-              <div class="skeleton-line w-15"></div>
-              <div class="skeleton-line w-15"></div>
-            </div>
-          `).join('')}
-        </div>`;
+      html = `<div class="skeleton-table"><div class="skeleton-header"><div class="skeleton-line w-25"></div><div class="skeleton-line w-25"></div><div class="skeleton-line w-25"></div><div class="skeleton-line w-25"></div></div>${Array(5).fill(`<div class="skeleton-row"><div class="skeleton-line w-30"></div><div class="skeleton-line w-20"></div><div class="skeleton-line w-15"></div><div class="skeleton-line w-15"></div></div>`).join('')}</div>`;
       break;
     case 'stats':
-      html = `
-        <div class="skeleton-stats">
-          ${Array(4).fill(`
-            <div class="skeleton-stat">
-              <div class="skeleton-line w-50"></div>
-              <div class="skeleton-line w-70" style="height: 28px; margin-top: 8px;"></div>
-            </div>
-          `).join('')}
-        </div>`;
+      html = `<div class="skeleton-stats">${Array(4).fill(`<div class="skeleton-stat"><div class="skeleton-line w-50"></div><div class="skeleton-line w-70" style="height:28px;margin-top:8px;"></div></div>`).join('')}</div>`;
       break;
     case 'list':
-      html = Array(4).fill(`
-        <div class="skeleton-list-item">
-          <div class="skeleton-line w-60"></div>
-          <div class="skeleton-line w-30"></div>
-        </div>
-      `).join('');
+      html = Array(4).fill(`<div class="skeleton-list-item"><div class="skeleton-line w-60"></div><div class="skeleton-line w-30"></div></div>`).join('');
       break;
     case 'chart':
-      html = `
-        <div class="skeleton-chart">
-          <div class="skeleton-line w-40" style="margin-bottom: 16px;"></div>
-          <div style="height: 200px; background: var(--border); border-radius: 8px; animation: pulse 1.5s infinite;"></div>
-        </div>`;
+      html = `<div class="skeleton-chart"><div class="skeleton-line w-40" style="margin-bottom:16px;"></div><div style="height:200px;background:var(--border);border-radius:8px;animation:pulse 1.5s infinite;"></div></div>`;
       break;
     default:
       html = '<div class="skeleton-card"><div class="skeleton-line w-80"></div></div>';
@@ -343,4 +243,28 @@ export function animateEntry(selector, delay = 0) {
       el.style.transform = 'translateY(0)';
     }, delay + (i * 80));
   });
+}
+
+// تحميل البيانات الأساسية في الخلفية وتخزينها في cache
+export async function preloadData() {
+  try {
+    const [customers, suppliers, categories, units, items, invoices, vouchers] = await Promise.all([
+      API.getCustomers().catch(() => []),
+      API.getSuppliers().catch(() => []),
+      API.getCategories().catch(() => []),
+      API.getUnits().catch(() => []),
+      API.getItems().catch(() => []),
+      API.getInvoices().catch(() => []),
+      API.getVouchers().catch(() => [])
+    ]);
+    cache['customers'] = customers;
+    cache['suppliers'] = suppliers;
+    cache['categories'] = categories;
+    cache['units'] = units;
+    cache['items'] = items;
+    cache['invoices'] = invoices;
+    cache['vouchers'] = vouchers;
+  } catch (err) {
+    console.warn('فشل تحميل البيانات الأولية', err);
+  }
 }

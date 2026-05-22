@@ -1,9 +1,7 @@
 // js/activation.js — تفعيل عبر الإنترنت مع معرف جهاز ثابت
 const LICENSE_STORAGE_KEY = 'alrajhi_license_v10';
-const SERVER_URL = 'https://license.manhal-almasriiii199119.workers.dev/activate';
-const PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqFo0vsRBik7fUVfVY3neK7YNfatWQKfq6IacPAOwfxM4C43+sOjxZyTB15eF8zU+KsBMj1bPhqtbKOrfhVrEYAGTaUc8+SK16+vJCeDWP2vzVhHKZPNdg1gFPjgChAJr1lp72XASiA1NKgRZrp6S/9OWnMzjKA3Is6jAIJKThZqTjb01k7jJRTO2XlX6PpIPLYd4sZlkYsIXVntU6LpZ0FCHPMKvtC/1IlwTZylUcrpPqKeToRdtYKNSqxiXQmqUedWe6PxPDS5SYmTdn00q/8Divm3tZRTLYgj/tvDjD27MWtvFDFa34tzRwo4xHBlAEwW8NPbg/+CR+rlkwneeYQIDAQAB
------END PUBLIC KEY-----`;
+const SERVER_URL = '/activate';
+const PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm5ExNGSd3T3MbpSeucSE\nKXi+b/yKGSpXMJeH/EgCi+Fyek1CN8Irixf3q99QpwRMMhhuzGutv6G9ZE38mner\nxfbGlgXIg9xKeRf+aFfGjvpCtIqAFX/mU1QDoSSrPKlzBt+zjp1/JGLCag9JAZch\nKeKgkKwKANWnKxl756BHSOJeo/MQEqXg6nfsduiqnJPIvJXTI3nHC5BZOyXPePTj\nKVLtevR3vmT8ym3qT0MPjJQF3v/TgKUSeaPbVSxOjTOWrwE0jN8swWmScAkgLNTm\nSLsaJGpAvU6b84uoEsLiDY6heEngHAu1Wfunkkpc6wA6MFHgjjuNimNTB2xi9tLK\n5wIDAQAB\n-----END PUBLIC KEY-----`;
 
 // معرف الجهاز الثابت: يتم إنشاؤه مرة واحدة ويبقى
 function getOrCreateDeviceId() {

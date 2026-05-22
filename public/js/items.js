@@ -1,4 +1,4 @@
-// public/js/items.js
+// items.js - إدارة المواد (نسخة معدلة لتحديث الجدول بعد الإضافة)
 import { apiCall, formatNumber, formatDate, debounce, ICONS, getUnitOptionsForItem, renderSkeleton, animateEntry } from './core.js';
 import { get as storeGet, set as storeSet } from './store.js';
 import { showToast, openModal, confirmDialog, showFormModal } from './modal.js';
@@ -53,7 +53,7 @@ export function renderFilteredItems() {
   
   if (!filtered.length) {
     return container.innerHTML = `<div class="empty-state">
-      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
       </svg>
       <h3>لا توجد مواد مطابقة</h3>
@@ -61,7 +61,6 @@ export function renderFilteredItems() {
     </div>`;
   }
 
-  // جدول بدون عمودي التصنيف والإجراءات
   let html = `
     <div class="table-wrap">
       <table class="table items-table">
@@ -84,36 +83,31 @@ export function renderFilteredItems() {
     const stockColor = available <= 0 ? 'var(--danger)' : available < LOW_STOCK_THRESHOLD ? 'var(--warning)' : 'var(--success)';
     const sellingPrice = item.selling_price || 0;
     const totalValue = item.total_value ?? (available * (parseFloat(item.average_cost) || 0));
-    const hasSubUnits = (item.item_units || []).length > 0;
     
     html += `
       <tr class="item-row" data-id="${item.id}" style="cursor:pointer;">
         <td>${idx + 1}</td>
-        <td style="font-weight:800;">
-          ${item.name}
-          <!-- تم إزالة كلمة "وحدات" بناءً على طلب المستخدم -->
-         </td>
+        <td style="font-weight:800;">${item.name}</td>
         <td>
           <span style="color:${stockColor}; font-weight:700;">${available}</span> ${baseUnitName}
           <span style="font-size:10px; color:${stockColor}; margin-right:4px;">(${stockStatus})</span>
           ${computeSubUnitQuantities(available, baseUnitName, item.item_units || []) ? `<div style="font-size:9px; color:var(--text-muted); margin-top:2px;">${computeSubUnitQuantities(available, baseUnitName, item.item_units || [])}</div>` : ''}
-         </td>
+        </td>
         <td><strong>${formatNumber(sellingPrice)}</strong></td>
         <td>${formatNumber(totalValue)}</td>
-       </tr>
+      </tr>
     `;
   });
   
   html += `
         </tbody>
-       </table>
+      </table>
     </div>
   `;
   
   container.innerHTML = html;
   animateEntry('.item-row', 60);
 
-  // ربط أحداث النقر على الصف (إظهار التفاصيل)
   container.querySelectorAll('.item-row').forEach(row => {
     row.addEventListener('click', (e) => {
       const itemId = row.dataset.id;
@@ -140,7 +134,7 @@ export async function loadItems() {
         </div>
         <button class="btn btn-primary btn-sm" id="btn-add-item">${ICONS.plus} إضافة</button>
       </div>
-      <div id="low-stock-alert" style="display:none; background:var(--danger-light); border:1.5px solid var(--danger); border-radius:14px; padding:12px 16px; margin-bottom:16px; align-items:center; justify-content:space-between; font-size:14px; color:var(--danger); cursor:pointer; font-weight:700; box-shadow: 0 4px 12px -4px var(--danger-glow);"></div>
+      <div id="low-stock-alert" style="display:none;"></div>
       <div class="form-group" style="margin-bottom:0;">
         <input type="text" class="input" id="items-search" placeholder="🔍 البحث في المواد...">
       </div>
@@ -170,10 +164,11 @@ export async function loadItems() {
   filterLowStock = false;
   
   try {
-    await apiCall('/items', 'GET');
+    const items = await apiCall('/items', 'GET');
+    storeSet('items', items);
     renderFilteredItems();
   } catch (err) {
-    document.getElementById('items-list').innerHTML = `<div class="empty-state"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><h3>عذراً، حدث خطأ</h3><p>${err.message}</p></div>`;
+    document.getElementById('items-list').innerHTML = `<div class="empty-state">خطأ: ${err.message}</div>`;
     showToast(err.message, 'error');
   }
 }
@@ -193,12 +188,10 @@ export function showItemDetail(itemId) {
       <div style="margin-bottom:20px;">
         <div style="font-weight:800;margin-bottom:12px;color:var(--text-secondary); font-size:15px;">نظام الوحدات</div>
         <div style="display:flex;flex-direction:column;gap:10px;">
-          <!-- الوحدة الأساسية - تم تغيير اللون إلى primary -->
           <div style="background:var(--primary-light);border:1.5px solid var(--primary);border-radius:12px;padding:12px 16px;">
             <span style="color:var(--primary);font-weight:800;">الوحدة الأساسية:</span>
             <span style="font-weight:700;"> ${baseUnitName}</span>
           </div>`;
-    
     itemUnits.forEach((iu, idx) => {
       const unit = iu.unit || {};
       const unitName = unit.name || unit.abbreviation || `وحدة ${idx + 2}`;
@@ -217,7 +210,6 @@ export function showItemDetail(itemId) {
   const sellingValue = available * (parseFloat(item.selling_price) || 0);
   const costDisplay = item.average_cost > 0 ? formatNumber(costValue) : 'غير محددة';
   const sellDisplay = item.selling_price > 0 ? formatNumber(sellingValue) : 'غير محددة';
-
   const purchaseQty = item.purchase_qty ?? 0;
   const saleQty = item.sale_qty ?? 0;
   const avgCost = parseFloat(item.average_cost) || 0;
@@ -263,7 +255,6 @@ export function showItemDetail(itemId) {
           <div style="font-size:11px; color: var(--text-muted);">تقديرية لو تم بيع المخزون</div>
         </div>
       </div>
-
       <div style="background:var(--bg);border-radius:16px;padding:18px;margin-bottom:20px;border:1.5px solid var(--border);">
         <h4 style="margin-bottom:14px;display:flex;align-items:center;gap:10px; font-size:15px;">
           <span style="background:var(--primary);color:#fff;border-radius:8px;padding:4px 10px;font-size:12px;">📋</span>
@@ -279,11 +270,7 @@ export function showItemDetail(itemId) {
           <div><span style="color:var(--text-muted);">متوسط سعر الشراء (المسجل):</span> <strong>${formatNumber(purchasePrice)}</strong></div>
           <div><span style="color:var(--text-muted);">متوسط سعر البيع (المسجل):</span> <strong>${formatNumber(sellingPrice)}</strong></div>
         </div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:10px; font-weight:500;">
-          * الإحصائيات أعلاه تعتمد على الفواتير المسجلة وقد تختلف عن الواقع في حال وجود أرصدة افتتاحية.
-        </div>
       </div>
-
       ${unitsHtml}
       <div class="form-label">التصنيف</div>
       <p style="margin-bottom:14px; font-weight:600;">${item.category?.name || 'بدون تصنيف'}</p>
@@ -335,6 +322,7 @@ async function showAddItemModal() {
   if (!categories) {
     try {
       categories = await apiCall('/definitions?type=category', 'GET');
+      storeSet('categories', categories);
     } catch (e) {
       showToast('فشل تحميل التصنيفات', 'error');
       return;
@@ -463,7 +451,8 @@ async function showAddItemModal() {
       const res = await apiCall(`/definitions?type=category`, 'POST', { type: 'category', name });
       const newId = res?.id || res?.data?.id;
       if (!newId) throw new Error('خطأ في الاستجابة');
-      storeSet('categories', [...cats, { id: newId, name }]);
+      const newCats = [...cats, { id: newId, name }];
+      storeSet('categories', newCats);
       const o = document.createElement('option');
       o.value = newId; o.textContent = name;
       select.appendChild(o);
@@ -482,7 +471,9 @@ async function showAddItemModal() {
     if (existing) return existing.id;
     const res = await apiCall('/definitions?type=unit', 'POST', { type: 'unit', name, abbreviation: name });
     const newId = res?.id || res?.data?.id;
-    if (newId) storeSet('units', [...units, { id: newId, name, abbreviation: name }]);
+    if (newId) {
+      storeSet('units', [...units, { id: newId, name, abbreviation: name }]);
+    }
     return newId;
   }
 
@@ -535,6 +526,7 @@ async function showAddItemModal() {
       await apiCall('/items', 'POST', values);
       modal.close();
       showToast('تم الحفظ بنجاح', 'success');
+      // إعادة تحميل الصفحة الحالية (المواد) لتحديث القائمة
       loadItems();
     } catch (e) {
       showToast(e.message, 'error');
@@ -548,7 +540,7 @@ async function showEditItemModal(itemId) {
   const items = storeGet('items') || [];
   let categories = storeGet('categories');
   if (!categories) {
-    try { categories = await apiCall('/definitions?type=category', 'GET'); } catch (e) { showToast('فشل تحميل التصنيفات', 'error'); return; }
+    try { categories = await apiCall('/definitions?type=category', 'GET'); storeSet('categories', categories); } catch (e) { showToast('فشل تحميل التصنيفات', 'error'); return; }
   }
   const it = items.find(i => i.id === itemId);
   if (!it) return;
@@ -685,7 +677,8 @@ async function showEditItemModal(itemId) {
       const res = await apiCall(`/definitions?type=category`, 'POST', { type: 'category', name });
       const newId = res?.id || res?.data?.id;
       if (!newId) throw new Error('خطأ في الاستجابة');
-      storeSet('categories', [...cats, { id: newId, name }]);
+      const newCats = [...cats, { id: newId, name }];
+      storeSet('categories', newCats);
       const o = document.createElement('option');
       o.value = newId; o.textContent = name;
       select.appendChild(o);
@@ -704,7 +697,9 @@ async function showEditItemModal(itemId) {
     if (existing) return existing.id;
     const res = await apiCall('/definitions?type=unit', 'POST', { type: 'unit', name, abbreviation: name });
     const newId = res?.id || res?.data?.id;
-    if (newId) storeSet('units', [...units, { id: newId, name, abbreviation: name }]);
+    if (newId) {
+      storeSet('units', [...units, { id: newId, name, abbreviation: name }]);
+    }
     return newId;
   }
 

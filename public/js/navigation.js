@@ -1,9 +1,9 @@
-// public/js/navigation.js - النسخة الكاملة بالأيقونات والتصميم الأصلي
+// navigation.js - إدارة التنقل (تم إخفاء الوحدات من القائمة)
 import { ICONS, unlockScroll, lockScroll } from './core.js';
 import { loadDashboard } from './dashboard.js';
 import { loadItems } from './items.js';
 import { loadInvoices, showInvoiceModal } from './invoices.js';
-import { loadGenericSection, getSectionOptions, loadUnitsSection } from './sections.js';
+import { loadGenericSection, getSectionOptions } from './sections.js';
 import { loadVouchers } from './vouchers.js';
 import { loadReports } from './reports.js';
 import { loadExpenses } from './expenses.js';
@@ -18,7 +18,8 @@ export const tabsConfig = {
   customers: { title: 'العملاء', subtitle: 'قائمة العملاء والذمم المدينة', icon: ICONS.users },
   suppliers: { title: 'الموردين', subtitle: 'قائمة الموردين والذمم الدائنة', icon: ICONS.factory },
   categories: { title: 'التصنيفات', subtitle: 'تصنيفات المواد', icon: ICONS.tag },
-  units: { title: 'الوحدات', subtitle: 'وحدات القياس', icon: ICONS.scale },
+  // تم إخفاء الوحدات من القائمة
+  // units: { title: 'الوحدات', subtitle: 'وحدات القياس', icon: ICONS.scale },
   vouchers: { title: 'السندات', subtitle: 'سندات القبض والصرف والمصاريف', icon: ICONS.fileText },
   invoices: { title: 'الفواتير', subtitle: 'سجل الفواتير والحركات', icon: ICONS.fileText },
   expenses: { title: 'المصاريف', subtitle: 'تتبع المصاريف التشغيلية', icon: ICONS.dollar },
@@ -41,7 +42,6 @@ export async function navigateTo(tabName) {
   currentTab = tabName;
   setActiveTab(tabName);
   
-  // إخفاء القوائم المنبثقة
   const moreMenu = document.getElementById('more-menu');
   if (moreMenu) moreMenu.style.display = 'none';
   const sidebar = document.getElementById('sidebar');
@@ -77,9 +77,9 @@ export async function navigateTo(tabName) {
       case 'categories':
         await loadGenericSection(getSectionOptions('/definitions?type=category'));
         break;
-      case 'units':
-        await loadUnitsSection();
-        break;
+      // case 'units': // تم إزالته
+      //   await loadUnitsSection();
+      //   break;
       case 'vouchers':
         await loadVouchers();
         break;
@@ -121,10 +121,10 @@ export function initNavigation() {
     return;
   }
 
-  // الأزرار الرئيسية في الشريط الجانبي (جميع الصفحات)
+  // الأزرار الرئيسية (بدون الوحدات)
   const mainTabs = [
     'dashboard', 'items', 'sale-invoice', 'purchase-invoice',
-    'customers', 'suppliers', 'categories', 'units', 'vouchers', 'invoices', 'expenses', 'reports'
+    'customers', 'suppliers', 'categories', 'vouchers', 'invoices', 'expenses', 'reports'
   ];
   
   mainTabs.forEach(key => {
@@ -138,9 +138,9 @@ export function initNavigation() {
     sidebarNav.appendChild(btn);
   });
 
-  // الأزرار التي تظهر في قائمة "المزيد" (نسخة مبسطة للشاشات الصغيرة)
+  // أزرار قائمة "المزيد" (بدون الوحدات)
   const moreTabs = [
-    'purchase-invoice', 'customers', 'suppliers', 'categories', 'units',
+    'purchase-invoice', 'customers', 'suppliers', 'categories',
     'vouchers', 'expenses', 'reports'
   ];
   moreTabs.forEach(key => {
@@ -163,7 +163,6 @@ export function initNavigation() {
     });
   });
 
-  // زر القائمة (للشريط الجانبي)
   const menuToggle = document.getElementById('menu-toggle');
   if (menuToggle) {
     menuToggle.addEventListener('click', () => {
@@ -172,7 +171,6 @@ export function initNavigation() {
     });
   }
 
-  // خلفية قائمة "المزيد"
   const moreBackdrop = document.querySelector('.sheet-backdrop');
   if (moreBackdrop) {
     moreBackdrop.addEventListener('click', () => {
