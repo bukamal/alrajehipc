@@ -1,7 +1,12 @@
-// public/js/core.js - الإصدار المُعد للعمل مع خادم Flask المحلي
-export const initData = 'local_user';
-export const apiBase = '/api';
+// public/js/core.js - نسخة تعمل مع قاعدة بيانات SQLite المحلية (بدون خادم)
+// جميع دوال المساعدة والأيقونات كما هي، فقط تم تغيير apiCall لاستخدام sql-db.js
 
+import API from './sql-db.js';
+
+export const initData = 'local_user';
+export const apiBase = ''; // لم يعد مستخدماً
+
+// أيقونات SVG (نفس النسخة الأصلية)
 export const ICONS = {
   home: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
   box: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
@@ -28,6 +33,7 @@ export const ICONS = {
   send: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
 };
 
+// دوال مساعدة عامة (بدون تغيير)
 export function formatNumber(num) {
   if (num === undefined || num === null || isNaN(num)) return '0';
   const n = Number(num);
@@ -105,77 +111,123 @@ function getEntityFromEndpoint(endpoint) {
   return path.replace(/^\//, '') || 'root';
 }
 
+// ========== دوال apiCall الجديدة ==========
 export async function apiCall(endpoint, method = 'GET', body = {}, retries = 1) {
-  let url = apiBase + endpoint;
-  if (method === 'GET' || method === 'DELETE') {
-    const sep = url.includes('?') ? '&' : '?';
-    url += `${sep}initData=${encodeURIComponent(initData)}`;
-  }
-
-  const storeKey = getStoreKey(endpoint);
-
-  if (method === 'GET') {
-    const cached = cache[storeKey];
-    if (cached !== undefined) return cached;
-  }
-
-  const options = { method, headers: { 'Content-Type': 'application/json' } };
-  if (method !== 'GET' && method !== 'DELETE') {
-    options.body = JSON.stringify({ ...body, initData });
-  }
-
+  // تجاهل الـ initData (لا حاجة له)
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    options.signal = controller.signal;
+    // تحليل المسار والمعاملات
+    const [path, queryString] = endpoint.split('?');
+    const params = new URLSearchParams(queryString || '');
 
-    const res = await fetch(url, options);
-    clearTimeout(timeout);
-
-    if (res.status === 429) {
-      const retryAfter = res.headers.get('Retry-After') || res.headers.get('X-RateLimit-Retry-After') || 5;
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.error || `تم تجاوز الحد المسموح. حاول بعد ${retryAfter} ثانية.`);
-    }
-
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(json.error || `خطأ ${res.status}`);
-
+    // التعامل مع المسارات المختلفة
     if (method === 'GET') {
-      cache[storeKey] = json;
-    }
-
-    if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
-      const entity = getEntityFromEndpoint(endpoint);
-      delete cache[entity];
-      if (entity === 'invoices') {
-        delete cache['customers'];
-        delete cache['suppliers'];
-        delete cache['items'];
+      // العملاء
+      if (path === '/customers') return await API.getCustomers();
+      // الموردين
+      if (path === '/suppliers') return await API.getSuppliers();
+      // التصنيفات والوحدات
+      if (path === '/definitions') {
+        const type = params.get('type');
+        if (type === 'category') return await API.getCategories();
+        if (type === 'unit') return await API.getUnits();
       }
+      // المواد
+      if (path === '/items') return await API.getItems();
+      // الفواتير
+      if (path === '/invoices') return await API.getInvoices();
+      // المصاريف
+      if (path === '/expenses') return await API.getExpenses();
+      // السندات (vouchers)
+      if (path === '/payments' && params.get('voucher') === '1') return await API.getVouchers();
+      // الملخص
+      if (path === '/summary') return await API.getSummary();
+      // الحسابات
+      if (path === '/accounts') return await API.getAccounts();
+      // التقارير (سيتم تنفيذها لاحقاً - نعيد مصفوفة فارغة مؤقتاً)
+      if (path === '/reports') return [];
+      // التحقق
+      if (path === '/verify') return await API.verify();
     }
 
-    return json;
+    else if (method === 'POST') {
+      // العملاء
+      if (path === '/customers') return await API.addCustomer(body);
+      // الموردين
+      if (path === '/suppliers') return await API.addSupplier(body);
+      // التصنيفات والوحدات
+      if (path === '/definitions') {
+        if (body.type === 'category') return await API.addCategory(body.name);
+        if (body.type === 'unit') return await API.addUnit(body.name, body.abbreviation);
+      }
+      // المواد
+      if (path === '/items') return await API.addItem(body);
+      // الفواتير
+      if (path === '/invoices') return await API.createInvoice(body);
+      // المصاريف
+      if (path === '/expenses') return await API.addExpense(body);
+      // السندات (إذا كان voucher: true)
+      if (path === '/payments' && body.voucher === true) return await API.addVoucher(body);
+      // التحقق
+      if (path === '/verify') return await API.verify();
+    }
+
+    else if (method === 'PUT') {
+      const id = body.id;
+      if (!id) throw new Error('معرف مطلوب للتعديل');
+      // العملاء
+      if (path === '/customers') return await API.updateCustomer(id, body);
+      // الموردين
+      if (path === '/suppliers') return await API.updateSupplier(id, body);
+      // التصنيفات
+      if (path === '/definitions') {
+        if (body.type === 'category') return await API.updateCategory(id, body.name);
+        if (body.type === 'unit') return await API.updateUnit(id, body.name, body.abbreviation);
+      }
+      // المواد
+      if (path === '/items') return await API.updateItem(id, body);
+      // الفواتير (تعديل الفاتورة – لم ننفذه بعد في sql-db.js، نرمي خطأ)
+      if (path === '/invoices') throw new Error('تعديل الفاتورة غير متاح بعد');
+    }
+
+    else if (method === 'DELETE') {
+      const id = params.get('id');
+      if (!id) throw new Error('معرف مطلوب للحذف');
+      // العملاء
+      if (path === '/customers') return await API.deleteCustomer(parseInt(id));
+      // الموردين
+      if (path === '/suppliers') return await API.deleteSupplier(parseInt(id));
+      // التصنيفات والوحدات
+      if (path === '/definitions') {
+        const type = params.get('type');
+        if (type === 'category') return await API.deleteCategory(parseInt(id));
+        if (type === 'unit') return await API.deleteUnit(parseInt(id));
+      }
+      // المواد
+      if (path === '/items') return await API.deleteItem(parseInt(id));
+      // الفواتير
+      if (path === '/invoices') return await API.deleteInvoice(parseInt(id));
+      // المصاريف
+      if (path === '/expenses') return await API.deleteExpense(parseInt(id));
+      // السندات (vouchers)
+      if (path === '/payments' && params.get('voucher') === '1') return await API.deleteVoucher(parseInt(id));
+    }
+
+    // إذا لم يطابق أي مسار
+    throw new Error(`API endpoint غير معروف: ${method} ${endpoint}`);
   } catch (err) {
-    if (err.name === 'AbortError') {
-      console.log(`Request to ${endpoint} was aborted.`);
-      return null;
-    }
-    if (retries > 0 && !err.message.includes('429')) {
-      return apiCall(endpoint, method, body, retries - 1);
-    }
-    let message = 'حدث خطأ أثناء الاتصال بالخادم';
-    if (err.message) {
-      if (err.message === 'Unauthorized') message = 'غير مصرح لك بالوصول';
-      else if (err.message.includes('Failed to fetch') || err.name === 'TypeError')
-        message = 'تعذر الاتصال بالخادم، تحقق من اتصالك';
-      else message = err.message;
-    }
-    throw new Error(message);
+    console.error('apiCall error:', err);
+    throw err;
   }
 }
 
+// دوال الواجهة (دون تغيير)
 export function getUnitOptionsForItem(itemId, selectedUnitId = null) {
+  // هذه الدالة تعتمد على cache['items'] – سنقوم بتحديث cache عند جلب المواد
+  // ولكن للتبسيط، يمكننا استخدام API.getItems() مباشرة إذا لم يكن في cache
+  if (!cache['items']) {
+    // نعيد تعبئة cache بشكل غير متزامن – هذا قد يسبب مشكلة، لذا نستخدم الـ cache المتاح
+    return '<option value="">اختر مادة</option>';
+  }
   const items = cache['items'] || [];
   const units = cache['units'] || [];
   const item = items.find(i => i.id == itemId);

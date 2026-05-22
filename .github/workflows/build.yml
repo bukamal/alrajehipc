@@ -13,21 +13,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # تثبيت أدوات بناء C++ عبر Chocolatey (الحل 2)
-      - name: Install Visual C++ Build Tools
-        run: |
-          choco install visualcpp-build-tools -y --no-progress
-        shell: powershell
-      # إضافة Python إلى المسار (مطلوب لـ node-gyp)
-      - name: Add Python to PATH
-        run: echo "C:\hostedtoolcache\windows\Python\3.12.10\x64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      # تثبيت الاعتماديات وإعادة بناء sqlite3
-      - name: Install dependencies and rebuild sqlite3
-        run: |
-          npm install
-          npm install --build-from-source
-      - name: Build Electron app
-        run: npm run build-win
+      - run: npm install
+      - run: npm run build-win
       - uses: actions/upload-artifact@v4
         with:
           name: alrajhi-setup
