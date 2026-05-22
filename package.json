@@ -1,11 +1,11 @@
 {
   "name": "alrajhi-accounting-desktop",
   "version": "2.0.0",
-  "description": "نظام الراجحي للمحاسبة - تطبيق سطح المكتب بدون خادم",
+  "description": "نظام الراجحي للمحاسبة - تطبيق سطح المكتب",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build-win": "electron-builder --win --x64",
+    "build-win": "electron-builder --win --x64 --publish never",
     "build-linux": "electron-builder --linux",
     "build-mac": "electron-builder --mac"
   },
@@ -24,6 +24,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "database.js",
       "public/**/*",
       "node_modules/**/*"
     ],
