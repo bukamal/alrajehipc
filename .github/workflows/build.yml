@@ -1,32 +1,30 @@
-name: Build Electron App
+name: Build Electron EXE
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
+          node-version: 20
+      # تثبيت أدوات البناء لـ Visual Studio
+      - name: Install Visual Studio Build Tools
+        run: |
+          choco install visualstudio2022-buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+        shell: powershell
+      - name: Set environment for node-gyp
+        run: npm config set msvs_version 2022
       - name: Install dependencies
-        run: npm install --no-package-lock
-
-      - name: Build Electron app (no publish)
-        run: npm run build-win -- --publish never
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        run: npm install --build-from-source
+      - name: Build executable
+        run: npm run build-win
+      - uses: actions/upload-artifact@v4
         with:
           name: alrajhi-setup
           path: dist/*.exe
